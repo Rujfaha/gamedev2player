@@ -39,8 +39,8 @@ Forest** (⌘⇧O). The same shortcut stops the game.
 
 | Scene | Course | Format |
 |---|---|---|
-| `Main` | **CPE Arena Circuit**: white robot-arena road with a black line-tracing stripe | Loop, 3 laps |
-| `Forest` | **Forest Switchback**: dirt road through a forest, 4 U-turn hairpins, S-bend, fog | One way, start → finish (~750 m) |
+| `Main` | **CPE Arena Circuit**: ~1 km, 16 m wide (room for 4 trucks), white robot-arena road with a black line-tracing stripe and red/white kerbs; long straight, sweeper, drift hairpin, S-bends | Loop, 3 laps |
+| `Forest` | **Forest Switchback**: dirt road through a forest, 15 m wide, 4 U-turn hairpins, S-bend, fog | One way, start → finish (~830 m) |
 
 On the results screen, **N** loads the next course. Everything is built at runtime by `GameBootstrap`: track, trucks, gems, split-screen
 cameras and HUD. If the scene contains a hand-built track that follows the naming contract below,

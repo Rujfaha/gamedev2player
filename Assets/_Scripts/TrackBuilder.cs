@@ -34,25 +34,26 @@ public static class TrackBuilder
 
     // ---------- Course shapes ----------
 
-    // Circuit: closed Catmull-Rom loop through these points (metres), ~600 m
+    // Circuit: closed Catmull-Rom loop through these points (metres), ~1050 m, 16 m wide so 4 trucks fit side by side.
+    // Long start straight, fast sweeper, drift hairpin, S-bends, then a long left onto the straight (min radius ~15 m).
     static readonly Vector2[] CircuitControl =
     {
-        new Vector2(0, 0), new Vector2(70, 0), new Vector2(120, 15), new Vector2(140, 55),
-        new Vector2(120, 95), new Vector2(80, 100), new Vector2(60, 75), new Vector2(30, 70),
-        new Vector2(10, 100), new Vector2(-30, 110), new Vector2(-70, 90), new Vector2(-85, 50),
-        new Vector2(-70, 10), new Vector2(-40, -15),
+        new Vector2(0, 0), new Vector2(90, 0), new Vector2(170, 5), new Vector2(215, 35), new Vector2(225, 85),
+        new Vector2(200, 125), new Vector2(155, 140), new Vector2(115, 120), new Vector2(90, 140), new Vector2(85, 180),
+        new Vector2(55, 208), new Vector2(5, 210), new Vector2(-35, 185), new Vector2(-80, 205), new Vector2(-130, 190),
+        new Vector2(-160, 145), new Vector2(-150, 95), new Vector2(-115, 60), new Vector2(-105, 20), new Vector2(-65, -5),
     };
 
     // Forest: driven piece by piece from (0,0) heading north. R/L = right/left turn (degrees, radius).
-    // ~780 m with 4 hairpins (180°), an S-bend and three 90° corners; the last 30 m is run-off past the finish.
+    // ~850 m, 15 m wide, with 4 hairpins (180°), an S-bend and three 90° corners; the last 30 m is run-off past the finish.
     static readonly Seg[] ForestRoute =
     {
-        S(80), R(180, 13),            // hairpin 1
-        S(60), L(180, 13),            // hairpin 2
-        S(60), R(180, 13),            // hairpin 3
+        S(80), R(180, 17),            // hairpin 1
+        S(60), L(180, 17),            // hairpin 2
+        S(60), R(180, 17),            // hairpin 3
         S(30), L(60, 25), R(60, 25),  // S-bend
         S(40), L(90, 30),
-        S(50), L(180, 14),            // hairpin 4
+        S(50), L(180, 18),            // hairpin 4
         S(25), R(90, 20),
         S(60), R(90, 25),
         S(40),                        // finish line at the end of this straight
@@ -115,8 +116,8 @@ public static class TrackBuilder
     {
         bool loop = id == TrackId.Circuit;
         var style = id == TrackId.Forest
-            ? new Style { width = 12f, road = cfg.dirtRoad, line = cfg.roadLine, ground = cfg.forestGround, wallA = cfg.woodA, wallB = cfg.woodB, wallHeight = 0.8f, forest = true }
-            : new Style { width = 14f, road = cfg.road, line = cfg.roadLine, ground = cfg.ground, wallA = cfg.wallA, wallB = cfg.wallB, wallHeight = 1.1f };
+            ? new Style { width = 15f, road = cfg.dirtRoad, line = cfg.roadLine, ground = cfg.forestGround, wallA = cfg.woodA, wallB = cfg.woodB, wallHeight = 0.8f, forest = true }
+            : new Style { width = 16f, road = cfg.road, line = cfg.roadLine, ground = cfg.ground, wallA = cfg.wallA, wallB = cfg.wallB, wallHeight = 1.1f };
 
         var root = new GameObject("Generated_" + id).transform;
         root.SetParent(parent, false);
@@ -153,7 +154,9 @@ public static class TrackBuilder
         ground.transform.SetParent(root, false);
         ground.transform.localPosition = new Vector3(bounds.center.x, -0.5f, bounds.center.z);
         ground.transform.localScale = new Vector3(bounds.size.x + 1000f, 1f, bounds.size.z + 1000f);
-        ground.GetComponent<Renderer>().sharedMaterial = style.ground;
+        var groundRenderer = ground.GetComponent<Renderer>();
+        groundRenderer.sharedMaterial = style.ground;
+        groundRenderer.material.mainTextureScale = new Vector2(ground.transform.localScale.x, ground.transform.localScale.z) / 8f; // one texture tile per 8 m
 
         Strip(root, "Road", pts, rights, widths, 0.02f, style.road, loop);
         var stripe = new float[n];
