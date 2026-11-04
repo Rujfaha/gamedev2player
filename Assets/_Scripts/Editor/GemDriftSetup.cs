@@ -14,6 +14,7 @@ public static class GemDriftSetup
     const string CarModelPath = "Assets/_Art/Kenney/CarKit/delivery-flat.fbx";
     const string KitPath = "Assets/_Art/Kenney/RacingKit/";
     const string ForestScene = "Assets/Scenes/Forest.unity";
+    const string MenuScene = "Assets/Scenes/Menu.unity";
     const string ConfigPath = "Assets/_Scripts/Resources/GemDriftConfig.asset";
     const string GenFolder = "Assets/_Scripts/Generated";
     const float TargetCarLength = 4.2f;
@@ -23,6 +24,7 @@ public static class GemDriftSetup
         EditorApplication.delayCall += () =>
         {
             if (AssetDatabase.LoadAssetAtPath<GemDriftConfig>(ConfigPath) == null) Rebuild();
+            else if (!MenuIsFirstScene()) EnsureMenuScene();
         };
     }
 
@@ -41,13 +43,16 @@ public static class GemDriftSetup
         EditorApplication.EnterPlaymode();
     }
 
+    [MenuItem("Gem Drift/Play Menu %#m")]
+    public static void PlayMenu() => Play(MenuScene);
+
     [MenuItem("Gem Drift/Build WebGL")]
     public static void BuildWebGL()
     {
         if (EditorApplication.isPlaying) { EditorApplication.ExitPlaymode(); return; }
         var opts = new BuildPlayerOptions
         {
-            scenes = new[] { ForestScene, "Assets/Scenes/Main.unity" }, // Forest opens first
+            scenes = new[] { MenuScene, ForestScene, "Assets/Scenes/Main.unity" }, // the menu is build index 0
             locationPathName = "Builds/WebGL",
             target = BuildTarget.WebGL,
             options = BuildOptions.None,
@@ -154,8 +159,27 @@ public static class GemDriftSetup
             UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, ForestScene);
             if (!string.IsNullOrEmpty(active)) UnityEditor.SceneManagement.EditorSceneManager.OpenScene(active);
         }
+        EnsureMenuScene();
+    }
+
+    static bool MenuIsFirstScene() =>
+        File.Exists(MenuScene) && EditorBuildSettings.scenes.Length > 0 && EditorBuildSettings.scenes[0].path == MenuScene;
+
+    // Menu scene: just a camera + light, like Main. GameBootstrap builds the live course background and the menu at runtime.
+    // Always the first scene in the build; the race scenes follow (Forest opens first).
+    static void EnsureMenuScene()
+    {
+        if (!File.Exists(MenuScene))
+        {
+            // additive, so whatever scene the user has open is left alone
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.DefaultGameObjects, UnityEditor.SceneManagement.NewSceneMode.Additive);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, MenuScene);
+            UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+        }
         EditorBuildSettings.scenes = new[]
         {
+            new EditorBuildSettingsScene(MenuScene, true),
             new EditorBuildSettingsScene(ForestScene, true),
             new EditorBuildSettingsScene("Assets/Scenes/Main.unity", true),
         };

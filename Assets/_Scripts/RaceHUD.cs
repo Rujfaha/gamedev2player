@@ -8,12 +8,12 @@ using UnityEngine.UI;
 /// </summary>
 public class RaceHUD : MonoBehaviour
 {
-    static readonly string[] Names = { "P1", "P2" };
     const float MapSize = 260f;
-    static readonly Color[] PlayerColors = { new Color(1f, 0.45f, 0.4f), new Color(0.45f, 0.7f, 1f) };
 
-    // Racers 0 and 1 are the players (one HUD half each); the rest are AI trucks, which only show up in positions and results.
-    static string Name(int racer) => racer < Names.Length ? Names[racer] : "AI " + (racer - Names.Length + 1);
+    // The first race.HumanCount racers are the players (one HUD half each, or the whole screen for one player);
+    // the rest are AI trucks, which only show up in positions and results. Colours are the trucks' own tints.
+    string Name(int racer) => racer < race.HumanCount ? "P" + (racer + 1) : "AI " + (racer - race.HumanCount + 1);
+    Color RacerColor(int racer) => race.Racers[racer].car.Tint;
     static string Ordinal(int n) => n == 1 ? "1st" : n == 2 ? "2nd" : n == 3 ? "3rd" : n + "th";
 
     class PlayerUI
@@ -45,22 +45,29 @@ public class RaceHUD : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
         var root = canvasGo.transform;
 
-        // divider between the two halves
-        var divider = Panel(root, "Divider", new Vector2(0.5f, 0), new Vector2(0.5f, 1), Color.black);
-        divider.sizeDelta = new Vector2(8, 0);
+        int humans = race.HumanCount;
+        float share = 1f / humans; // screen share of each player: half each for two players, the whole screen for one
 
-        players = new PlayerUI[2];
-        for (int i = 0; i < 2; i++)
+        // divider between the two halves
+        if (humans == 2)
         {
-            var half = Panel(root, Names[i], new Vector2(i * 0.5f, 0), new Vector2(i * 0.5f + 0.5f, 1), Color.clear);
+            var divider = Panel(root, "Divider", new Vector2(0.5f, 0), new Vector2(0.5f, 1), Color.black);
+            divider.sizeDelta = new Vector2(8, 0);
+        }
+
+        players = new PlayerUI[humans];
+        for (int i = 0; i < humans; i++)
+        {
+            string label = Name(i);
+            var half = Panel(root, label, new Vector2(i * share, 0), new Vector2((i + 1) * share, 1), Color.clear);
             var ui = new PlayerUI();
-            var tag = MakeText(half, Names[i], 44, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(30, -20), new Vector2(120, 60));
-            tag.color = PlayerColors[i];
+            var tag = MakeText(half, label, 44, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(30, -20), new Vector2(120, 60));
+            tag.color = RacerColor(i);
             ui.lap = MakeText(half, "", 40, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(30, -75), new Vector2(400, 60));
-            // minimap top-right, position (1st/2nd) just left of it
+            // minimap top-right (Settings > Show minimap), position (1st/2nd) just left of it
             var cars = System.Array.ConvertAll(race.Racers, r => r.car);
-            Minimap.Create(half, new Vector2(MapSize, MapSize), layout, cars, i, MapColors(cars.Length));
-            ui.position = MakeText(half, "", 90, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-MapSize - 44, -10), new Vector2(300, 110));
+            if (GameSettings.ShowMinimap) Minimap.Create(half, new Vector2(MapSize, MapSize), layout, cars, i, System.Array.ConvertAll(cars, c => c.Tint));
+            ui.position = MakeText(half, "", 90, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(GameSettings.ShowMinimap ? -MapSize - 44 : -30, -10), new Vector2(300, 110));
             ui.gems = MakeText(half, "", 40, TextAnchor.LowerLeft, new Vector2(0, 0), new Vector2(30, 30), new Vector2(520, 60));
             ui.speed = MakeText(half, "", 40, TextAnchor.LowerRight, new Vector2(1, 0), new Vector2(-30, 30), new Vector2(300, 60));
             ui.popup = MakeText(half, "", 52, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.7f), Vector2.zero, new Vector2(800, 80));
@@ -90,7 +97,7 @@ public class RaceHUD : MonoBehaviour
         }
 
         resultsDim = Panel(root, "ResultsDim", Vector2.zero, Vector2.one, new Color(0, 0, 0, 0.6f)).gameObject;
-        resultsDim.transform.SetSiblingIndex(1);
+        resultsDim.transform.SetSiblingIndex(humans == 2 ? 1 : 0); // under the player halves, so their text stays bright
         resultsDim.SetActive(false);
 
         center = MakeText(root, "", 160, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.55f), Vector2.zero, new Vector2(1200, 200));
@@ -122,10 +129,10 @@ public class RaceHUD : MonoBehaviour
             case RaceManager.Phase.Results:
                 resultsDim.SetActive(true);
                 center.text = "";
-                centerSub.text = Standings() + "R / Enter = race again      1 = Forest   2 = Arena";
-                centerSub.rectTransform.anchorMin = centerSub.rectTransform.anchorMax = new Vector2(0.5f, 0.08f);
+                centerSub.text = Standings() + "R / Enter = again      N = next      M / Esc = menu";
+                centerSub.rectTransform.anchorMin = centerSub.rectTransform.anchorMax = new Vector2(0.5f, race.HumanCount == 1 ? 0.2f : 0.08f); // clear of the nitro bar a single player has at the bottom centre
                 winner.text = Name(race.WinnerIndex) + " WINS!";
-                winner.color = race.WinnerIndex < PlayerColors.Length ? PlayerColors[race.WinnerIndex] : Color.white;
+                winner.color = RacerColor(race.WinnerIndex);
                 break;
         }
     }
@@ -172,7 +179,7 @@ public class RaceHUD : MonoBehaviour
             string finish = r.dnf ? "DID NOT FINISH  (-" + RaceManager.DnfPenalty + ")"
                           : r.finishOrder == 1 ? "FINISHED 1st  (+" + RaceManager.FirstPlaceBonus + ")"
                           : "FINISHED " + Ordinal(r.finishOrder) + "  (+0)";
-            ui.result.text = Names[i] + "\n\nGems value  " + r.gemScore + "\n" + finish + "\n\nTOTAL  " + r.Total;
+            ui.result.text = Name(i) + "\n\nGems value  " + r.gemScore + "\n" + finish + "\n\nTOTAL  " + r.Total;
         }
         else if (r.finished)
         {
@@ -187,17 +194,6 @@ public class RaceHUD : MonoBehaviour
         var line = "";
         for (int i = 0; i < race.Racers.Length; i++) line += Name(i) + " " + race.Racers[i].Total + "     ";
         return line + "\n";
-    }
-
-    // players in their HUD colours, AI trucks in their body tint
-    static Color[] MapColors(int count)
-    {
-        var cfg = GemDriftConfig.Load();
-        var cols = new Color[count];
-        for (int k = 0; k < count; k++)
-            cols[k] = k < PlayerColors.Length ? PlayerColors[k]
-                    : cfg != null && cfg.aiTints.Length > 0 ? cfg.aiTints[(k - 2) % cfg.aiTints.Length] : Color.gray;
-        return cols;
     }
 
     static string FormatTime(float t) => Mathf.FloorToInt(t / 60f) + ":" + (t % 60f).ToString("00.00");

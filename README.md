@@ -34,15 +34,22 @@ so say so in chat first.
 
 ## Play it
 
-Open the project and use the menu **Gem Drift → Play Circuit** (⌘⇧P) or **Gem Drift → Play
-Forest** (⌘⇧O). The same shortcut stops the game.
+Open the project and use the menu **Gem Drift → Play Menu** (⌘⇧M) for the whole game, or **Gem Drift → Play Circuit**
+(⌘⇧P) / **Gem Drift → Play Forest** (⌘⇧O) to jump straight into a race (2 players + `GemDriftConfig.aiCount` AI trucks, no
+menu choices). The same shortcut stops the game. In a build the first scene is `Menu`.
+
+**Main menu** (`Menu` scene, live course with AI trucks in the background): Play → single player or 2 players (split screen) →
+number of racers in the match (2-6, AI trucks fill the rest) → each player picks a truck colour (P1: A / D + Space, P2:
+arrows + Enter, or the mouse; two players cannot pick the same colour) → course. Also How to Play and Settings (music / SFX
+volume, English / Thai, fullscreen, quality, minimap, camera shake; saved in PlayerPrefs). **Esc** goes back on every screen;
+in a race **Esc** pauses (Resume / Restart / Main Menu). Menus also work with arrow keys / WASD + Enter, the mouse and a gamepad.
 
 | Scene | Course | Format |
 |---|---|---|
 | `Main` | **CPE Arena Circuit**: ~1 km, 16 m wide (room for 4 trucks), white robot-arena road with a black line-tracing stripe and red/white kerbs; long straight, sweeper, drift hairpin, S-bends | Loop, 3 laps |
 | `Forest` | **Forest Switchback**: dirt road through a forest, 15 m wide, 4 U-turn hairpins, S-bend, fog | One way, start → finish (~830 m) |
 
-On the results screen, **N** loads the next course. Everything is built at runtime by `GameBootstrap`: track, trucks, gems, split-screen
+On the results screen, **N** loads the next course and **M** / **Esc** goes back to the main menu. Everything is built at runtime by `GameBootstrap`: track, trucks, gems, split-screen
 cameras and HUD. If the scene contains a hand-built track that follows the naming contract below,
 that track is used instead of the generated test circuit.
 
@@ -54,7 +61,8 @@ that track is used instead of the generated test circuit.
 | Steer | A / D | ← / → |
 | Drift (hold while turning) | Left Shift or Space | Right Shift or / |
 | Respawn at last checkpoint | R | Enter |
-| Race again / next course (results screen) | R / Enter / Space · N | |
+| Pause (during a race) | Esc | Esc |
+| Race again / next course / main menu (results screen) | R / Enter / Space · N · M / Esc | |
 
 ## Rules (in code)
 
@@ -62,7 +70,7 @@ that track is used instead of the generated test circuit.
   the first truck finishes, the others have 10 s.
 - A hand-built one-way track needs an empty GameObject named `PointToPoint`. Its last checkpoint
   is then the finish line.
-- `GemDriftConfig.aiCount` (default 2) AI trucks race with the two players and are scored the same way.
+- AI trucks race with the players and are scored the same way. The menu sets how many (total racers minus players); `GemDriftConfig.aiCount` (default 2) is used when a race scene is opened directly. A single player gets one full-screen camera and either set of keys.
 - Gems: red 1, blue 2, gold 3 (gold sits on the inside of sharp corners). Gems are physics objects
   (they roll and bounce). Track gems respawn after 10 s.
 - **Nitro:** drifting fills the nitro tank (3 s of drifting = full). When it's full, double-tap your
@@ -78,7 +86,12 @@ that track is used instead of the generated test circuit.
 
 | File | What it does |
 |---|---|
-| `GameBootstrap` | Builds the race when `Main` loads |
+| `GameBootstrap` | Builds the race when `Main` / `Forest` loads, or the live background + menu when `Menu` loads |
+| `MainMenu` / `MenuUI` / `MenuCamera` | The menu screens (uGUI in code: dark glass cards, pill buttons, keycap prompts), shared UI builders with generated rounded sprites, and the orbiting background camera |
+| `MenuFx` / `UISkew` | Hover / focus animation for menu buttons, and the italic lean for titles |
+| `ThaiMarks` | Fixes Thai tone marks in uGUI Text (it has no text shaping): lifts them above upper vowels and moves them off tall letters like ป ฝ ฟ |
+| `MatchSettings` / `GameSettings` / `Loc` | What the menu picked for the race, options saved in PlayerPrefs, and the text tables (English, Thai) |
+| `PauseMenu` | Esc in a race: Resume / Restart / Main Menu |
 | `TrackBuilder` | Generated test circuit, or reads a hand-built track from the scene |
 | `CarController` | Truck physics, drift, boost, crashes, respawn |
 | `PlayerControls` | Keyboard bindings per player (Input System) |

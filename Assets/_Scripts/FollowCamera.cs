@@ -49,6 +49,7 @@ public class FollowCamera : MonoBehaviour
     void LateUpdate()
     {
         float dt = Time.deltaTime;
+        if (dt <= 0f) return; // paused
         var dir = ChaseDirection();
         var carPos = target.transform.position;
         var desired = carPos - dir * distance + Vector3.up * height;
@@ -58,5 +59,12 @@ public class FollowCamera : MonoBehaviour
         transform.rotation = Quaternion.Slerp(transform.rotation, look, 1f - Mathf.Exp(-rotationSharpness * dt));
         float speed01 = Mathf.Clamp01(Mathf.Abs(target.Speed) / target.maxSpeed);
         cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, 60f + speed01 * 12f + (target.Boosting ? 6f : 0f), 1f - Mathf.Exp(-4f * dt));
+
+        // Settings > Camera shake: a little rumble on nitro, a bigger jolt when gems spill
+        if (GameSettings.CameraShake)
+        {
+            float shake = (target.NitroActive ? 0.05f : 0f) + (Time.time - target.Bed.LastSpillTime < 0.25f ? 0.15f : 0f);
+            if (shake > 0f) transform.position += Random.insideUnitSphere * shake;
+        }
     }
 }

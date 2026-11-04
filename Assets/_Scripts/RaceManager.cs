@@ -41,10 +41,15 @@ public class RaceManager : MonoBehaviour
     public string TrackName { get; private set; } = "";
     public int CheckpointCount => checkpoints.Length;
     public Transform[] Checkpoints => checkpoints;
+    /// <summary>Human players; they come first in Racers, the AI trucks after them.</summary>
+    public int HumanCount { get; private set; }
+    /// <summary>Main-menu background: AI trucks drive the course forever. No countdown, results or keys.</summary>
+    public bool Demo { get; private set; }
 
     Transform[] checkpoints;
     int finishCount;
     float raceStart, resultsTime;
+    Pose demoStart;
 
     public void Init(CarController[] cars, TrackLayout layout)
     {
@@ -73,11 +78,25 @@ public class RaceManager : MonoBehaviour
             }
             cars[i].CanDrive = false;
             Racers[i] = r;
+            if (!cars[i].IsAI) HumanCount++;
         }
+    }
+
+    /// <summary>Like Init, but the race never ends: used behind the main menu.</summary>
+    public void InitDemo(CarController[] cars, TrackLayout layout)
+    {
+        Init(cars, layout);
+        Demo = true;
+        Laps = int.MaxValue;
+        demoStart = layout.starts[0];
+        State = Phase.Racing;
+        raceStart = GoTime = Time.time;
+        foreach (var r in Racers) r.car.CanDrive = true;
     }
 
     void Update()
     {
+        if (Demo || Time.timeScale == 0f) return; // menu background, or the race is paused
         var keys = Keyboard.current;
         if (keys != null && (State == Phase.Countdown || State == Phase.Results))
         {
@@ -110,6 +129,8 @@ public class RaceManager : MonoBehaviour
                         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
                     else if (kb.nKey.wasPressedThisFrame)
                         SceneManager.LoadScene(GameBootstrap.NextScene(SceneManager.GetActiveScene().name));
+                    else if (kb.mKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame)
+                        SceneManager.LoadScene(GameBootstrap.MenuScene);
                 }
                 break;
         }
@@ -139,8 +160,14 @@ public class RaceManager : MonoBehaviour
         }
         else
         {
-            if (index == checkpoints.Length - 1) Finish(r);
-            else r.nextCheckpoint = index + 1;
+            if (index != checkpoints.Length - 1) r.nextCheckpoint = index + 1;
+            else if (!Demo) Finish(r);
+            else // menu background: send the truck back to the start of the one-way route
+            {
+                r.nextCheckpoint = 0;
+                car.SetRespawn(demoStart.position, demoStart.rotation);
+                car.Respawn();
+            }
         }
     }
 

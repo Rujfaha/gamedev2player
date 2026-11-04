@@ -41,6 +41,7 @@ public class CarController : MonoBehaviour
     public float wallCrashImpact = 12f;
 
     public int PlayerIndex { get; private set; }
+    public Color Tint { get; private set; }   // body colour, also used for the HUD and minimap
     public bool CanDrive { get; set; }
     public bool IsAI => controls == null;
     /// <summary>Input for AI trucks (x = steer, y = throttle), written by CarAI.</summary>
@@ -75,10 +76,10 @@ public class CarController : MonoBehaviour
     Vector3 respawnPos;
     Quaternion respawnRot;
 
-    /// <summary>Players are index 0 and 1. AI trucks (ai = true) use index 2 and up.</summary>
-    public static CarController Create(GemDriftConfig cfg, int index, Vector3 pos, Quaternion rot, bool ai = false)
+    /// <summary>Humans first (index 0, 1), then the AI trucks (ai = true). tint overrides the body colour from GemDriftConfig.</summary>
+    public static CarController Create(GemDriftConfig cfg, int index, Vector3 pos, Quaternion rot, bool ai = false, Color? tint = null)
     {
-        var root = new GameObject(ai ? "Car_AI" + (index - 1) : "Car_P" + (index + 1)) { layer = Layers.Car };
+        var root = new GameObject(ai ? "Car_AI" + index : "Car_P" + (index + 1)) { layer = Layers.Car };
         root.transform.SetPositionAndRotation(pos, rot);
 
         var rb = root.AddComponent<Rigidbody>();
@@ -107,10 +108,12 @@ public class CarController : MonoBehaviour
         model.transform.localPosition = cfg.modelOffset;
         foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
         var block = new MaterialPropertyBlock();
-        block.SetColor("_Color", ai ? cfg.aiTints[(index - 2) % cfg.aiTints.Length] : cfg.playerTints[index]);
+        var bodyTint = tint ?? (ai ? cfg.aiTints[(index - 2) % cfg.aiTints.Length] : cfg.playerTints[index]);
+        block.SetColor("_Color", bodyTint);
         foreach (var r in model.GetComponentsInChildren<Renderer>()) r.SetPropertyBlock(block);
 
         var car = root.AddComponent<CarController>();
+        car.Tint = bodyTint;
         car.Setup(cfg, index, body, ai);
         if (ai) root.AddComponent<CarAI>();
         return car;
@@ -122,7 +125,7 @@ public class CarController : MonoBehaviour
         PlayerIndex = index;
         rb = GetComponent<Rigidbody>();
         body = bodyTransform;
-        controls = ai ? null : new PlayerControls(index);
+        controls = ai ? null : new PlayerControls(index, MatchSettings.Humans == 1);
         Bed = gameObject.AddComponent<GemBed>();
         Bed.Setup(cfg, body, this);
         SetRespawn(transform.position, transform.rotation);
@@ -189,6 +192,7 @@ public class CarController : MonoBehaviour
 
     void Update()
     {
+        if (Time.timeScale == 0f) return; // paused
         if (CanDrive && !IsAI && controls.ResetPressed) Respawn();
 
         // double-tap drift = NITRO: red with a full tank, blue with half (AI trucks call TryFireNitro instead)

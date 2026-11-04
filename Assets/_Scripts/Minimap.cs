@@ -57,7 +57,7 @@ public class Minimap : MonoBehaviour
             {
                 bool mine = i == owner;
                 if ((pass == 0) == mine) continue;
-                float s = mine ? 40f : i < 2 ? 30f : 22f; // AI trucks smallest
+                float s = mine ? 40f : !cars[i].IsAI ? 30f : 22f; // AI trucks smallest
                 if (mine) m.MakeArrow(mr, arrowOutlineSprite, Color.white, s + 10f, "Outline_P" + (i + 1));
                 m.arrows[i] = m.MakeArrow(mr, arrowSprite, playerColors[i], s, "Arrow_P" + (i + 1));
                 if (mine) m.arrows[i].GetComponent<Image>().transform.SetAsLastSibling();

@@ -3,12 +3,16 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Builds the whole race when a game scene loads ("Main" = arena circuit, "Forest" = forest switchback):
-/// track (hand-built from the scene if present, otherwise the generated course), two player trucks plus AI trucks,
-/// gems, split-screen cameras, race rules and HUD.
+/// track (hand-built from the scene if present, otherwise the generated course), the player trucks plus AI trucks,
+/// gems, cameras, race rules and HUD. How many players / AI and their colours come from MatchSettings (main menu);
+/// opened directly in the editor it falls back to GemDriftConfig: two players and aiCount AI trucks.
+/// In the "Menu" scene it builds a live background instead: a course with two AI trucks and an orbiting camera, plus the main menu.
 /// Nothing has to be placed in the scene by hand for the game to be playable.
 /// </summary>
 public class GameBootstrap : MonoBehaviour
 {
+    public const string MenuScene = "Menu";
+
     // scene name → built-in course used when the scene has no hand-built track
     static readonly string[] GameScenes = { "Main", "Forest" };
 
@@ -30,12 +34,14 @@ public class GameBootstrap : MonoBehaviour
 
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (System.Array.IndexOf(GameScenes, scene.name) >= 0 && FindAnyObjectByType<GameBootstrap>() == null)
+        bool ours = scene.name == MenuScene || System.Array.IndexOf(GameScenes, scene.name) >= 0;
+        if (ours && FindAnyObjectByType<GameBootstrap>() == null)
             new GameObject("GemDrift").AddComponent<GameBootstrap>();
     }
 
     void Awake()
     {
+        Time.timeScale = 1f; // a paused race may have been left through the pause menu
         Time.fixedDeltaTime = 1f / 60f;
         var cfg = GemDriftConfig.Load();
         if (cfg == null)
@@ -60,8 +66,21 @@ public class GameBootstrap : MonoBehaviour
         RenderSettings.ambientEquatorColor = new Color(0.58f, 0.64f, 0.58f);
         RenderSettings.ambientGroundColor = new Color(0.36f, 0.34f, 0.28f);
 
-        var id = SceneManager.GetActiveScene().name == "Forest" ? TrackId.Forest : TrackId.Circuit;
-        if (id == TrackId.Forest) RenderSettings.fogColor = new Color(0.72f, 0.88f, 0.8f);
+        string sceneName = SceneManager.GetActiveScene().name;
+        bool menu = sceneName == MenuScene;
+        var id = menu ? (Random.value < 0.5f ? TrackId.Forest : TrackId.Circuit) // the menu background shows either course
+                      : sceneName == "Forest" ? TrackId.Forest : TrackId.Circuit;
+        if (id == TrackId.Forest)
+        {
+            RenderSettings.fogColor = new Color(0.72f, 0.88f, 0.8f);
+            if (menu) // the Forest scene saves its fog, the Menu scene does not
+            {
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.Linear;
+                RenderSettings.fogStartDistance = 35f;
+                RenderSettings.fogEndDistance = 190f;
+            }
+        }
         else
         {
             // light haze on the arena so far-away scenery fades instead of popping
@@ -75,36 +94,70 @@ public class GameBootstrap : MonoBehaviour
         if (sky != null) RenderSettings.skybox = sky;
         var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform, id);
 
-        int aiCount = Mathf.Max(0, cfg.aiCount);
-        var cars = new CarController[2 + aiCount];
-        for (int i = 0; i < 2; i++)
-            cars[i] = CarController.Create(cfg, i, layout.starts[i].position, layout.starts[i].rotation);
-        for (int k = 0; k < aiCount; k++)
-        {
-            var start = AIStart(layout, k);
-            cars[2 + k] = CarController.Create(cfg, 2 + k, start.position, start.rotation, true);
-        }
-
         foreach (var (pos, color) in layout.gems)
             GemPickup.CreateOnTrack(cfg, color, new Vector3(pos.x, 0f, pos.z));
 
-        // split screen: P1 left half, P2 right half
-        FollowCamera.Create(cars[0], new Rect(0f, 0f, 0.5f, 1f));
-        FollowCamera.Create(cars[1], new Rect(0.5f, 0f, 0.5f, 1f));
-
         var race = gameObject.AddComponent<RaceManager>();
+        if (menu)
+        {
+            // two AI trucks lap the course behind the menu; the camera orbits the first one
+            var pal = MatchSettings.Palette(cfg);
+            var demo = new CarController[2];
+            for (int k = 0; k < demo.Length; k++)
+                demo[k] = CarController.Create(cfg, k, layout.starts[k].position, layout.starts[k].rotation, true, pal[2 + k]);
+            race.InitDemo(demo, layout);
+            MenuCamera.Create(demo[0].transform);
+            gameObject.AddComponent<MainMenu>();
+            return;
+        }
+
+        int humans = MatchSettings.Humans;
+        int aiCount = MatchSettings.AiCount(cfg);
+        var cars = new CarController[humans + aiCount];
+        for (int i = 0; i < humans; i++)
+            cars[i] = CarController.Create(cfg, i, layout.starts[i].position, layout.starts[i].rotation, false, MatchSettings.Tint(cfg, i));
+        for (int k = 0; k < aiCount; k++)
+        {
+            var start = AIStart(layout, k, humans + k);
+            cars[humans + k] = CarController.Create(cfg, humans + k, start.position, start.rotation, true, MatchSettings.Tint(cfg, humans + k));
+        }
+
+        // one full-screen camera for a single player; split screen for two (P1 left half, P2 right half)
+        float width = 1f / humans;
+        for (int i = 0; i < humans; i++)
+            FollowCamera.Create(cars[i], new Rect(i * width, 0f, width, 1f));
+
         race.Init(cars, layout);
         gameObject.AddComponent<RaceHUD>().Init(race, layout);
+        gameObject.AddComponent<PauseMenu>();
     }
 
+    // Hand-built tracks (no course grid): 3 lanes x 2 rows. Humans take the outer lanes of row 0 (the Start_P1 / Start_P2 poses),
+    // AI trucks fill row 1 and then the middle lane. More than 6 go in extra rows.
+    static readonly (int row, int lane)[] Grid = { (0, 0), (0, 2), (1, 0), (1, 2), (0, 1), (1, 1) };
+
+    // Generated courses: the front row has 5 lanes (AI, P1, AI, P2, AI). Trucks that don't fit line up in a second row.
+    static readonly int[] SecondRowLanes = { 0, -1, 1, -2, 2 };
+
     /// <summary>An optional Start_AI1, Start_AI2.. marker in the scene, else the course's grid slot,
-    /// else a slot behind Start_P1/P2 (6 m per row).</summary>
-    static Pose AIStart(TrackLayout layout, int k)
+    /// else a slot behind the front row (6 m per row).</summary>
+    static Pose AIStart(TrackLayout layout, int k, int slot)
     {
         var marker = GameObject.Find("Start_AI" + (k + 1));
         if (marker != null) return new Pose(marker.transform.position, marker.transform.rotation);
         if (k < layout.aiStarts.Count) return layout.aiStarts[k];
-        var s = layout.starts[k % 2];
-        return new Pose(s.position - s.rotation * Vector3.forward * (6f * (1 + k / 2)), s.rotation);
+        var p1 = layout.starts[0];
+        Vector3 back = p1.rotation * Vector3.back * 6f;
+        if (layout.aiStarts.Count > 0)
+        {
+            // P1 and P2 sit one lane either side of the middle, so half the gap between them is one lane step
+            int n = k - layout.aiStarts.Count;
+            var middle = (p1.position + layout.starts[1].position) * 0.5f;
+            var laneStep = (layout.starts[1].position - p1.position) * 0.5f;
+            return new Pose(middle + laneStep * SecondRowLanes[n % SecondRowLanes.Length] + back * (1 + n / SecondRowLanes.Length), p1.rotation);
+        }
+        var (row, lane) = Grid[slot % Grid.Length];
+        row += 2 * (slot / Grid.Length);
+        return new Pose(Vector3.Lerp(p1.position, layout.starts[1].position, lane * 0.5f) + back * row, p1.rotation);
     }
 }
