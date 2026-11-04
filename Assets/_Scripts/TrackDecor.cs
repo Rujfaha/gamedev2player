@@ -16,6 +16,7 @@ public static class TrackDecor
     static float[] widths;
     static float clearance;
     static List<Vector3> extraClear;
+    static Vector3 away;   // outward direction of the last Beside() call: props get pushed this way off the road
     static System.Random rng;
     static readonly Dictionary<string, float> rawHeight = new Dictionary<string, float>();
 
@@ -101,6 +102,7 @@ public static class TrackDecor
     static Vector3 Beside(int i, int side, float extra)
     {
         i = Mathf.Clamp(i, 0, pts.Count - 1);
+        away = rights[i] * side;
         return pts[i] + rights[i] * side * (widths[i] * 0.5f + 0.7f + extra);
     }
 
@@ -134,6 +136,19 @@ public static class TrackDecor
         return true;
     }
 
+    // true if no road / shortcut centre point is within half a road width (+margin) of the footprint
+    static bool FootprintClear(Bounds b, float margin)
+    {
+        foreach (var list in new[] { pts, extraClear })
+            for (int k = 0; k < list.Count; k++)
+            {
+                var p = new Vector3(list[k].x, b.center.y, list[k].z);
+                float limit = (list == pts ? widths[k] * 0.5f + 0.7f : 4.2f) + margin;
+                if (b.SqrDistance(p) < limit * limit) return false;
+            }
+        return true;
+    }
+
     static void Prop(string name, Vector3 pos, Quaternion rot, float height, bool carKit = false, float maxSize = float.MaxValue)
     {
         var prefab = Find(name);
@@ -156,7 +171,17 @@ public static class TrackDecor
             go.transform.localScale *= maxSize / wide; // flat, wide models: cap the footprint
             b = Bounds(go);
         }
-        go.transform.position += Vector3.up * -b.min.y;
+        // centre the model's footprint on the spot (some Kenney pivots sit at a corner) and sit it on the ground
+        go.transform.position += new Vector3(pos.x - b.center.x, -b.min.y, pos.z - b.center.z);
+        // the whole footprint must stay off the road: push it outwards, or drop it if that doesn't work
+        Vector3 push = new Vector3(away.x, 0f, away.z).normalized;
+        for (int tries = 0; ; tries++)
+        {
+            b = Bounds(go);
+            if (FootprintClear(b, carKit ? 0.3f : 1.2f)) break;
+            if (tries >= 12 || push == Vector3.zero) { Object.Destroy(go); return; }
+            go.transform.position += push * 1.5f;
+        }
     }
 
     // Original CPE · KMUTT sign: two posts and a double-sided panel (cfg.cpeBanner, 4:1)
