@@ -161,6 +161,8 @@ public class CarController : MonoBehaviour
         var emission = sparks.emission;
         emission.rateOverTime = 0f;
         sparks.GetComponent<ParticleSystemRenderer>().material = cfg.spark;
+
+        gameObject.AddComponent<CarEffects>().Setup(cfg, this, body);
     }
 
     public void SetRespawn(Vector3 pos, Quaternion rot)

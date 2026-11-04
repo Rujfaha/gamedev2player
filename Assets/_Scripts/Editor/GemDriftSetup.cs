@@ -83,6 +83,9 @@ public static class GemDriftSetup
         cfg.checker = CheckerMat();
         cfg.skid = SpriteMat("Skid", new Color(0.05f, 0.05f, 0.05f, 0.55f));
         cfg.spark = SpriteMat("Spark", Color.white);
+        cfg.flame = FlameMat();
+        cfg.nitroTankShell = Mat("NitroTankShell", new Color(0.62f, 0.66f, 0.72f), 0.85f, 0.7f);
+        cfg.nitroGlow = Mat("NitroGlow", new Color(0.85f, 0.4f, 1f), 0.9f, 0f, new Color(0.9f, 0.35f, 1.6f));
 
         // Forest course
         cfg.dirtRoad = Mat("DirtRoad", new Color(0.72f, 0.6f, 0.43f), 0.05f);
@@ -255,6 +258,40 @@ public static class GemDriftSetup
             AssetDatabase.CreateAsset(m, path);
         }
         m.color = color;
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // soft round dot, additive: overlapping particles add up into a bright flame core
+    static Material FlameMat()
+    {
+        string texPath = GenFolder + "/FlameDot.asset";
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        if (tex == null)
+        {
+            const int S = 64;
+            tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(S / 2f, S / 2f)) / (S / 2f);
+                    float a = Mathf.Clamp01(1f - d);
+                    a = a * a;
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            tex.Apply();
+            AssetDatabase.CreateAsset(tex, texPath);
+        }
+        string path = GenFolder + "/Flame.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null)
+        {
+            var shader = Shader.Find("Legacy Shaders/Particles/Additive") ?? Shader.Find("Sprites/Default");
+            m = new Material(shader);
+            AssetDatabase.CreateAsset(m, path);
+        }
+        m.mainTexture = tex;
+        if (m.HasProperty("_TintColor")) m.SetColor("_TintColor", new Color(0.5f, 0.5f, 0.5f, 0.5f));
         EditorUtility.SetDirty(m);
         return m;
     }

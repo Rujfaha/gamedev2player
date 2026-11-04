@@ -31,6 +31,8 @@ public class GemDriftConfig : ScriptableObject
     public Material road, roadLine, ground, wallA, wallB, checker;
     public Material gemRed, gemBlue, gemGold;
     public Material skid, spark;
+    public Material flame;                     // additive soft dot for exhaust fire
+    public Material nitroTankShell, nitroGlow; // little nitro tank on the bed
 
     [Header("Forest course")]
     public Material dirtRoad, forestGround, woodA, woodB;
