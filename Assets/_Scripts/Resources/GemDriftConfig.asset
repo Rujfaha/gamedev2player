@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 393baafae2cee48718f0cb6b6e60b2d4, type: 3}
+  m_Name: GemDriftConfig
+  m_EditorClassIdentifier: 
+  carModel: {fileID: 919132149155446097, guid: 2fbcd4c3c881d44f3903a601ecbe47af, type: 3}
+  modelYaw: 0
+  modelScale: 1.2923079
+  modelOffset: {x: -0, y: -0, z: 0.032307625}
+  carSize: {x: 1.9384618, y: 1.7446156, z: 4.2}
+  bedCenter: {x: 0, y: 0.64550775, z: -0.94499993}
+  bedSize: {x: 1.3569232, y: 1.512}
+  playerTints:
+  - {r: 1, g: 0.55, b: 0.5, a: 1}
+  - {r: 0.55, g: 0.75, b: 1, a: 1}
+  road: {fileID: 2100000, guid: 7b1ed036f7041422db392a98d7f66632, type: 2}
+  roadLine: {fileID: 2100000, guid: a2d6304cd187f42709fa301033079e51, type: 2}
+  ground: {fileID: 2100000, guid: 3a2136f034ce0424a9f6012ae56768fa, type: 2}
+  wallA: {fileID: 2100000, guid: 835bf35fe4be04dbfac143131a3bcae0, type: 2}
+  wallB: {fileID: 2100000, guid: 5048fcdedf6ef47938192d92714720b2, type: 2}
+  checker: {fileID: 2100000, guid: 288ab2f6d77e74837a8835fe5a0e1ffc, type: 2}
+  gemRed: {fileID: 2100000, guid: 24095640524404191a8e38e1ea6003ca, type: 2}
+  gemBlue: {fileID: 2100000, guid: 3455b9bafe09b4775bcbb0b4d6017d3a, type: 2}
+  gemGold: {fileID: 2100000, guid: 13f362ee77dc249f58cd1236ba23b869, type: 2}
+  skid: {fileID: 2100000, guid: e8f37876624f3479ea6a42701af9599d, type: 2}
+  spark: {fileID: 2100000, guid: fe960e49925ef436b94236cfe300c0cd, type: 2}

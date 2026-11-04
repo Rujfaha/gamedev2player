@@ -12,7 +12,7 @@ fall out. **Winner = highest score: gem value in the bed + 5 for finishing first
 
 ## Who does what
 
-The full task split is in [`docs/Gem_Drift_Tasks.pdf`](docs/Gem_Drift_Tasks.pdf).
+The full task split is in [`docs/Gem_Drift_Tasks.pdf`](docs/Gem_Drift_Tasks.pdf). Progress is tracked in the GitHub issues (checklists). The menu design spec is [`docs/MAIN_MENU_UI.md`](docs/MAIN_MENU_UI.md).
 
 | Person | Role | Branch | Owns |
 |---|---|---|---|
@@ -31,13 +31,46 @@ so say so in chat first.
 - Start positions: `Start_P1`, `Start_P2`, facing the driving direction.
 - Layers: `Road` (6), `Wall` (7, must have colliders), `Car` (8), `Gem` (9).
 
-## Controls (planned)
+## Play it
 
-| Action | P1 | P2 |
+Open the project and use the menu **Gem Drift → Play Race** (⌘⇧P). It opens `Main` and starts
+the game. Everything is built at runtime by `GameBootstrap`: track, trucks, gems, split-screen
+cameras and HUD. If the scene contains a hand-built track that follows the naming contract below,
+that track is used instead of the generated test circuit.
+
+## Controls
+
+| Action | P1 (left screen) | P2 (right screen) |
 |---|---|---|
-| Throttle / reverse | W / S | ↑ / ↓ |
+| Throttle / brake-reverse | W / S | ↑ / ↓ |
 | Steer | A / D | ← / → |
-| Drift (hold) | Left Shift | Right Shift |
+| Drift (hold while turning) | Left Shift or Space | Right Shift or / |
+| Respawn at last checkpoint | R | Enter |
+| Race again (results screen) | R / Enter / Space | |
+
+## Rules (in code)
+
+- 3 laps through the checkpoints in order. After the first truck finishes, the other has 10 s.
+- Gems: red 1, blue 2, gold 3 (gold sits on the inside of sharp corners). Track gems respawn after 10 s.
+- The bed holds 12 gems, and a full bed makes the truck up to 15% slower.
+- Drift 0.8 s = boost, 1.6 s = super boost. Each 2 s of drifting spills a gem. Hitting the other
+  truck spills 2 gems, and hitting a wall hard spills 1.
+- Score = gem value + 5 for first place (−3 for not finishing). Highest wins, and a tie goes to
+  whoever finished first.
+
+## Code map (`Assets/_Scripts`)
+
+| File | What it does |
+|---|---|
+| `GameBootstrap` | Builds the race when `Main` loads |
+| `TrackBuilder` | Generated test circuit, or reads a hand-built track from the scene |
+| `CarController` | Truck physics, drift, boost, crashes, respawn |
+| `PlayerControls` | Keyboard bindings per player (Input System) |
+| `GemBed` / `GemPickup` / `GemMesh` | Gems in the bed, on the track, and the gem mesh |
+| `RaceManager` | Countdown, laps, finish, last call, scoring |
+| `RaceHUD` | Split-screen HUD and results |
+| `FollowCamera` | Chase camera per half |
+| `Editor/GemDriftSetup` | Menu: Play Race, Rebuild Config (materials + truck measurements) |
 
 ## Assets
 
