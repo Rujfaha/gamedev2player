@@ -54,3 +54,46 @@ MonoBehaviour:
   - {fileID: 919132149155446097, guid: 92524f331ac874a02b94297272626118, type: 3}
   - {fileID: 919132149155446097, guid: 71f086c9f90634242ac9ab07f58c5703, type: 3}
   finishArch: {fileID: 919132149155446097, guid: ce3c82d8eb3a043a895b1b8830842735, type: 3}
+  decorNames:
+  - bannerTowerRed
+  - bannerTowerGreen
+  - flagCheckers
+  - flagCheckersSmall
+  - flagRed
+  - flagGreen
+  - grandStand
+  - grandStandCovered
+  - pitsGarage
+  - pitsOffice
+  - tent
+  - tentLong
+  - radarEquipment
+  - lightPostLarge
+  - lightRedDouble
+  - billboard
+  - billboardLow
+  - grass
+  - cone
+  decorModels:
+  - {fileID: 919132149155446097, guid: 8965f0b25bcf348be83a03cc74a1477f, type: 3}
+  - {fileID: 919132149155446097, guid: f516f622e6282463db42dc4806462361, type: 3}
+  - {fileID: 919132149155446097, guid: fce632ce0bae64a65b0db7bb97e5b752, type: 3}
+  - {fileID: 919132149155446097, guid: d5565063f32164d50827b8a3e0699c02, type: 3}
+  - {fileID: 919132149155446097, guid: 6075f6f9e699348aeb27d9956396b81b, type: 3}
+  - {fileID: 919132149155446097, guid: dac19a80934994705b8557ac9092788c, type: 3}
+  - {fileID: 919132149155446097, guid: 970c48bb86aa64f00ba12e12d1534556, type: 3}
+  - {fileID: 919132149155446097, guid: 53eda068b34a0451c87182620ef6d3d5, type: 3}
+  - {fileID: 919132149155446097, guid: db265b0db20da46508878dfd1560b2f4, type: 3}
+  - {fileID: 919132149155446097, guid: 585a49d163ae64f81b14a312a851cf7f, type: 3}
+  - {fileID: 919132149155446097, guid: 7e1a84145c57a4a81b3cff6b5c1a875d, type: 3}
+  - {fileID: 919132149155446097, guid: efc1688fec2fe44269968a7023af40bc, type: 3}
+  - {fileID: 919132149155446097, guid: d8d9cbb68f3ff4ee9953245e202e32c6, type: 3}
+  - {fileID: 919132149155446097, guid: 64683becf3a3a4fb78e3fe3f2a3f735a, type: 3}
+  - {fileID: 919132149155446097, guid: 1729ae526d42b4573b9bce8cbe9f7c9a, type: 3}
+  - {fileID: 919132149155446097, guid: 01acd8c43afe54eb988477d22fbb18b1, type: 3}
+  - {fileID: 919132149155446097, guid: 7b70c9633e8b048f78fdaa998afd6adc, type: 3}
+  - {fileID: 919132149155446097, guid: 6462f3eb6258c4ae2b6e3c6382738df9, type: 3}
+  - {fileID: 919132149155446097, guid: 7079a1b5d9dc84704893b7a1bbc5ec6c, type: 3}
+  skyCircuit: {fileID: 2100000, guid: 662bbdac34a1341a289e8ed00ae23c9f, type: 2}
+  skyForest: {fileID: 2100000, guid: 5849f10b237584bcab7708c5afe2eb71, type: 2}
+  cpeBanner: {fileID: 2100000, guid: c9061543b32fc4e94b4b036006c55576, type: 2}

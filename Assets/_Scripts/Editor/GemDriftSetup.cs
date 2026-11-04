@@ -99,6 +99,20 @@ public static class GemDriftSetup
         cfg.treeModels = new[] { ReadableModel(KitPath + "treeLarge.fbx"), ReadableModel(KitPath + "treeSmall.fbx") };
         cfg.finishArch = AssetDatabase.LoadAssetAtPath<GameObject>(KitPath + "overheadRoundColored.fbx");
 
+        // Scenery props (readable so they can be static-batched at runtime)
+        string[] racing = { "bannerTowerRed", "bannerTowerGreen", "flagCheckers", "flagCheckersSmall", "flagRed", "flagGreen",
+                            "grandStand", "grandStandCovered", "pitsGarage", "pitsOffice", "tent", "tentLong", "radarEquipment",
+                            "lightPostLarge", "lightRedDouble", "billboard", "billboardLow", "grass" };
+        var names = new System.Collections.Generic.List<string>();
+        var models = new System.Collections.Generic.List<GameObject>();
+        foreach (var r in racing) { names.Add(r); models.Add(ReadableModel(KitPath + r + ".fbx")); }
+        names.Add("cone"); models.Add(ReadableModel("Assets/_Art/Kenney/CarKit/cone.fbx"));
+        cfg.decorNames = names.ToArray();
+        cfg.decorModels = models.ToArray();
+        cfg.skyCircuit = Sky("SkyCircuit", new Color(0.42f, 0.62f, 1f), 1.05f, 1.25f);
+        cfg.skyForest = Sky("SkyForest", new Color(0.45f, 0.7f, 0.85f), 1.2f, 1.1f);
+        cfg.cpeBanner = BannerMat();
+
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(CarModelPath);
         if (model == null) { Debug.LogError("Gem Drift: car model not found at " + CarModelPath); return; }
         cfg.carModel = model;
@@ -454,6 +468,43 @@ public static class GemDriftSetup
         float grain = ValueNoise(u * 0.25f, v, 24, Mathf.FloorToInt(pv) + 3);
         float shade = (0.7f + 0.3f * grain) * (0.55f + 0.45f * gap);
         return (new Color(shade, shade, shade), gap * 0.8f + grain * 0.2f);
+    }
+
+    // Sign print: drop an official file at Assets/_Art/Banners/CPE_Logo_Official.png (4:1 works best) to use it
+    // instead of the generated CPE_Banner.png.
+    static Material BannerMat()
+    {
+        string official = "Assets/_Art/Banners/CPE_Logo_Official.png", generated = "Assets/_Art/Banners/CPE_Banner.png";
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(official) ?? AssetDatabase.LoadAssetAtPath<Texture2D>(generated);
+        if (tex == null) return null;
+        string path = GenFolder + "/CpeBanner.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null)
+        {
+            m = new Material(Shader.Find("Unlit/Texture"));
+            AssetDatabase.CreateAsset(m, path);
+        }
+        m.mainTexture = tex;
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    static Material Sky(string name, Color tint, float thickness, float exposure)
+    {
+        string path = GenFolder + "/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null)
+        {
+            m = new Material(Shader.Find("Skybox/Procedural"));
+            AssetDatabase.CreateAsset(m, path);
+        }
+        m.SetColor("_SkyTint", tint);
+        m.SetFloat("_AtmosphereThickness", thickness);
+        m.SetFloat("_Exposure", exposure);
+        m.SetFloat("_SunSize", 0.05f);
+        m.SetColor("_GroundColor", new Color(0.42f, 0.45f, 0.4f));
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     static Material CheckerMat()

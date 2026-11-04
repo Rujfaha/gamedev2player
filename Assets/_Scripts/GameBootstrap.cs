@@ -62,6 +62,17 @@ public class GameBootstrap : MonoBehaviour
 
         var id = SceneManager.GetActiveScene().name == "Forest" ? TrackId.Forest : TrackId.Circuit;
         if (id == TrackId.Forest) RenderSettings.fogColor = new Color(0.72f, 0.88f, 0.8f);
+        else
+        {
+            // light haze on the arena so far-away scenery fades instead of popping
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = new Color(0.78f, 0.87f, 0.97f);
+            RenderSettings.fogStartDistance = 140f;
+            RenderSettings.fogEndDistance = 520f;
+        }
+        var sky = id == TrackId.Forest ? cfg.skyForest : cfg.skyCircuit;
+        if (sky != null) RenderSettings.skybox = sky;
         var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform, id);
 
         int aiCount = Mathf.Max(0, cfg.aiCount);

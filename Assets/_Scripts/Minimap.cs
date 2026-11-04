@@ -136,6 +136,8 @@ public class Minimap : MonoBehaviour
 
         Stroke(px, path, layout.loop, roadPx + 2.5f, new Color32(20, 20, 20, 230));     // dark edge
         Stroke(px, path, layout.loop, roadPx, new Color32(235, 235, 225, 255));          // road
+        foreach (var sc in layout.shortcuts)                                             // shortcuts: thin orange
+            Stroke(px, sc, false, Mathf.Max(1.5f, roadPx * 0.45f), new Color32(255, 150, 40, 255));
 
         // finish line (yellow bar) and, on a one-way route, a green start dot
         if (layout.checkpoints != null && layout.checkpoints.Length > 0)

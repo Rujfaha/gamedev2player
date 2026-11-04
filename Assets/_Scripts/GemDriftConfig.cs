@@ -39,6 +39,12 @@ public class GemDriftConfig : ScriptableObject
     public GameObject[] treeModels;   // [0] large, [1] small (Kenney Racing Kit)
     public GameObject finishArch;     // Kenney overhead arch over the finish line
 
+    [Header("Scenery (TrackDecor)")]
+    public string[] decorNames;       // looked up by name, e.g. "grandStand", "cone"
+    public GameObject[] decorModels;
+    public Material skyCircuit, skyForest;
+    public Material cpeBanner;        // CPE · KMUTT sign print (Assets/_Art/Banners)
+
     public Material GemMaterial(GemColor c) => c == GemColor.Gold ? gemGold : c == GemColor.Blue ? gemBlue : gemRed;
 
     public static GemDriftConfig Load() => Resources.Load<GemDriftConfig>("GemDriftConfig");

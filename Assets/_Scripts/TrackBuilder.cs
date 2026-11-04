@@ -16,6 +16,7 @@ public class TrackLayout
     public List<(Vector3 pos, GemColor color)> gems = new List<(Vector3, GemColor)>();
     public List<Vector3> path = new List<Vector3>(); // centre line, for the minimap
     public List<Pose> aiStarts = new List<Pose>();   // grid slots for AI trucks (same row as the players)
+    public List<List<Vector3>> shortcuts = new List<List<Vector3>>(); // centre lines of shortcut paths (minimap)
     public float roadWidth = 14f;
 }
 
@@ -31,6 +32,10 @@ public static class TrackBuilder
     const float SampleSpacing = 2f, CheckpointSpacing = 30f, GemSpacing = 24f, RunOff = 30f;
     // The start area is widened so 5 trucks fit side by side, then tapers back to the normal width.
     const float GridWidth = 21f, GridLaneSpacing = 3.6f, WideZone = 30f, TaperZone = 35f;
+    // Forest shortcut: a narrow dirt cut across the gap of hairpin 1, from 66 m on the first straight to
+    // the same height on the way back (~147 m). Short, but two 90° turns and three barriers to dodge.
+    static readonly Vector2[] ForestShortcuts = { new Vector2(66f, 147.4f) };
+    const float ShortcutWidth = 7f;
 
     // ---------- Course shapes ----------
 
@@ -56,7 +61,13 @@ public static class TrackBuilder
         S(50), L(180, 18),            // hairpin 4
         S(25), R(90, 20),
         S(60), R(90, 25),
-        S(40),                        // finish line at the end of this straight
+        // --- extension: zig-zag climb, hairpin 5, long run home, final S ---
+        S(60), L(90, 22),
+        S(40), R(40, 30), L(80, 30), R(40, 30),   // zig-zag
+        S(30), R(180, 18),                        // hairpin 5
+        S(130), L(90, 30),
+        S(40), L(70, 22), R(140, 20), L(70, 22),  // final S
+        S(60),                                    // finish line at the end of this straight
         S(RunOff),
     };
 
@@ -162,10 +173,19 @@ public static class TrackBuilder
         var stripe = new float[n];
         for (int i = 0; i < n; i++) stripe[i] = 0.6f;
         Strip(root, "LineTracingStripe", pts, rights, stripe, 0.035f, style.line, loop);
-        BuildWalls(root, pts, rights, tangents, widths, style, loop);
+        var layoutShortcuts = new List<List<Vector3>>();
+        // shortcut gates: wall gaps where a shortcut joins the road
+        var gates = new List<Vector3>();
+        var shortcutPts = new List<Vector3>();
+        if (style.forest)
+            foreach (var sc in ForestShortcuts)
+                BuildShortcut(root, cfg, style, pts, rights, widths,
+                              Mathf.RoundToInt(sc.x / SampleSpacing), Mathf.RoundToInt(sc.y / SampleSpacing), gates, shortcutPts, layoutShortcuts);
+        BuildWalls(root, pts, rights, tangents, widths, style, loop, gates);
 
         int finishIdx = loop ? 0 : Mathf.Clamp(Mathf.RoundToInt((total - RunOff) / SampleSpacing), 0, n - 1);
         FinishLine(root, cfg, pts[finishIdx], tangents[finishIdx], widths[finishIdx]);
+        TrackDecor.Dress(cfg, root, pts, rights, tangents, widths, loop, style.forest, finishIdx, shortcutPts);
 
         var layout = new TrackLayout
         {
@@ -230,7 +250,13 @@ public static class TrackBuilder
             }
         }
 
-        if (style.forest) Forest(root, cfg, pts, Mathf.Max(style.width, GridWidth), bounds);
+        layout.shortcuts.AddRange(layoutShortcuts);
+        if (style.forest)
+        {
+            var clear = new List<Vector3>(pts);
+            clear.AddRange(shortcutPts);
+            Forest(root, cfg, clear, Mathf.Max(style.width, GridWidth), bounds);
+        }
         return layout;
     }
 
@@ -331,7 +357,7 @@ public static class TrackBuilder
     }
 
     // Box colliders along both edges (+ end caps on a one-way route); visuals merged into two meshes
-    static void BuildWalls(Transform parent, List<Vector3> pts, Vector3[] rights, Vector3[] tangents, float[] widths, Style style, bool loop)
+    static void BuildWalls(Transform parent, List<Vector3> pts, Vector3[] rights, Vector3[] tangents, float[] widths, Style style, bool loop, List<Vector3> gates)
     {
         var temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
         var cube = temp.GetComponent<MeshFilter>().sharedMesh;
@@ -363,6 +389,7 @@ public static class TrackBuilder
                 int j = (i + 1) % n;
                 var a = pts[i] + rights[i] * Offset(i) * side;
                 var b = pts[j] + rights[j] * Offset(j) * side;
+                if (InGate((a + b) * 0.5f, gates)) continue; // opening for a shortcut
                 Piece((a + b) * 0.5f + Vector3.up * height * 0.5f, Quaternion.LookRotation(b - a),
                       new Vector3(thick, height, Vector3.Distance(a, b) + 0.3f), (i / 3) % 2 == 0);
             }
@@ -378,6 +405,72 @@ public static class TrackBuilder
         }
         Merge(parent, "Walls_A", partsA, style.wallA);
         Merge(parent, "Walls_B", partsB, style.wallB);
+    }
+
+    static bool InGate(Vector3 p, List<Vector3> gates)
+    {
+        foreach (var g in gates)
+            if (new Vector2(p.x - g.x, p.z - g.z).magnitude < ShortcutWidth * 0.5f + 0.8f) return true;
+        return false;
+    }
+
+    // A narrow straight cut from sample f to sample t (they must face each other across a gap):
+    // road strip, its own side walls, three barriers to slalom through, and gates in the main walls.
+    static void BuildShortcut(Transform parent, GemDriftConfig cfg, Style style, List<Vector3> pts, Vector3[] rights, float[] widths,
+                              int f, int t, List<Vector3> gates, List<Vector3> outPts, List<List<Vector3>> outLines)
+    {
+        int sA = Vector3.Dot(rights[f], pts[t] - pts[f]) > 0 ? 1 : -1;
+        int sB = Vector3.Dot(rights[t], pts[f] - pts[t]) > 0 ? 1 : -1;
+        Vector3 edgeA = pts[f] + rights[f] * sA * (widths[f] * 0.5f + 0.35f);
+        Vector3 edgeB = pts[t] + rights[t] * sB * (widths[t] * 0.5f + 0.35f);
+        gates.Add(edgeA);
+        gates.Add(edgeB);
+
+        // road: from inside road A to inside road B (overlapping both so there's no seam)
+        Vector3 a = pts[f] + rights[f] * sA * (widths[f] * 0.5f - 1.5f);
+        Vector3 b = pts[t] + rights[t] * sB * (widths[t] * 0.5f - 1.5f);
+        Vector3 dir = (b - a).normalized, side = Vector3.Cross(Vector3.up, dir);
+        int steps = Mathf.Max(2, Mathf.CeilToInt(Vector3.Distance(a, b) / SampleSpacing));
+        var line = new List<Vector3>();
+        var lineRights = new Vector3[steps + 1];
+        var lineWidths = new float[steps + 1];
+        for (int k = 0; k <= steps; k++)
+        {
+            line.Add(Vector3.Lerp(a, b, k / (float)steps));
+            lineRights[k] = side;
+            lineWidths[k] = ShortcutWidth;
+        }
+        Strip(parent, "ShortcutRoad", line, lineRights, lineWidths, 0.025f, style.road, false);
+        outPts.AddRange(line);
+        outLines.Add(line);
+
+        // side walls only on the stretch between the two main roads
+        var walls = new GameObject("ShortcutWalls") { layer = Layers.Wall };
+        walls.transform.SetParent(parent, false);
+        float len = Vector3.Distance(edgeA, edgeB);
+        Vector3 mid = (edgeA + edgeB) * 0.5f;
+        Quaternion rot = Quaternion.LookRotation(dir);
+        foreach (int s in new[] { -1, 1 })
+            Block(walls.transform, mid + side * s * (ShortcutWidth * 0.5f + 0.35f), rot, new Vector3(0.7f, style.wallHeight, len), (s < 0 ? style.wallA : style.wallB), style.wallHeight);
+
+        // three barriers, alternating sides: slalom
+        for (int k = 0; k < 3; k++)
+        {
+            Vector3 p = Vector3.Lerp(edgeA, edgeB, 0.3f + 0.2f * k) + side * (k % 2 == 0 ? -1.6f : 1.6f);
+            Block(walls.transform, p, rot * Quaternion.Euler(0, 90, 0), new Vector3(3.2f, 1f, 0.8f), cfg.wallA, 1f);
+        }
+    }
+
+    static void Block(Transform parent, Vector3 groundPos, Quaternion rot, Vector3 size, Material mat, float height)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "Barrier";
+        go.layer = Layers.Wall;
+        go.transform.SetParent(parent, false);
+        go.transform.SetPositionAndRotation(groundPos + Vector3.up * height * 0.5f, rot);
+        go.transform.localScale = size;
+        go.GetComponent<Renderer>().sharedMaterial = mat;
+        go.isStatic = true;
     }
 
     static void Merge(Transform parent, string name, List<CombineInstance> parts, Material mat)

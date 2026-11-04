@@ -11,6 +11,7 @@ public class RaceManager : MonoBehaviour
 {
     public const float CountdownTime = 3f, LastCallTime = 10f;
     public const int FirstPlaceBonus = 5, DnfPenalty = 3;
+    const int MaxSkip = 3;
 
     public enum Phase { Countdown, Racing, LastCall, Results }
 
@@ -118,9 +119,13 @@ public class RaceManager : MonoBehaviour
     {
         if (State != Phase.Racing && State != Phase.LastCall) return;
         var r = Racers[car.PlayerIndex];
-        if (r.finished || index != r.nextCheckpoint) return;
+        if (r.finished) return;
+        // the next checkpoint, or up to 3 further on (a shortcut skips the ones in between)
+        int n = checkpoints.Length;
+        int ahead = Loop ? (index - r.nextCheckpoint + n) % n : index - r.nextCheckpoint;
+        if (ahead < 0 || ahead > MaxSkip) return;
 
-        r.passed++;
+        r.passed += ahead + 1;
         var cp = checkpoints[index];
         car.SetRespawn(cp.position + cp.right * (car.PlayerIndex == 0 ? -3f : 3f), cp.rotation);
         if (Loop)
