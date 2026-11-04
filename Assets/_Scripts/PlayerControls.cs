@@ -33,6 +33,7 @@ public class PlayerControls
 
     public UnityEngine.Vector2 Move => move.ReadValue<UnityEngine.Vector2>();
     public bool DriftHeld => drift.IsPressed();
+    public bool DriftPressed => drift.WasPressedThisFrame();
     public bool ResetPressed => reset.WasPressedThisFrame();
 
     public void Dispose()

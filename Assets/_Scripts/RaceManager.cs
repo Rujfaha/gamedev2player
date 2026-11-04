@@ -75,6 +75,15 @@ public class RaceManager : MonoBehaviour
 
     void Update()
     {
+        var keys = Keyboard.current;
+        if (keys != null && (State == Phase.Countdown || State == Phase.Results))
+        {
+            // 1 / 2 = jump straight to a course
+            string target = keys.digit1Key.wasPressedThisFrame ? GameBootstrap.SceneForCourse(0)
+                          : keys.digit2Key.wasPressedThisFrame ? GameBootstrap.SceneForCourse(1) : null;
+            if (target != null) { SceneManager.LoadScene(target); return; }
+        }
+
         switch (State)
         {
             case Phase.Countdown:

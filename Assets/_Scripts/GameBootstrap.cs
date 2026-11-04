@@ -11,6 +11,9 @@ public class GameBootstrap : MonoBehaviour
     // scene name → built-in course used when the scene has no hand-built track
     static readonly string[] GameScenes = { "Main", "Forest" };
 
+    /// <summary>Course 0 = Forest Switchback, 1 = CPE Arena Circuit (keys 1 / 2).</summary>
+    public static string SceneForCourse(int course) => course == 0 ? "Forest" : "Main";
+
     public static string NextScene(string current)
     {
         int i = System.Array.IndexOf(GameScenes, current);

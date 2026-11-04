@@ -15,8 +15,9 @@ public class RaceHUD : MonoBehaviour
     class PlayerUI
     {
         public Text lap, position, gems, speed, popup, result;
-        public RectTransform driftFill;
-        public Image driftFillImage;
+        public RectTransform driftFill, nitroFill;
+        public Image driftFillImage, nitroFillImage;
+        public Text nitroLabel;
     }
 
     RaceManager race;
@@ -68,6 +69,15 @@ public class RaceHUD : MonoBehaviour
             ui.driftFill = Panel(bar, "Fill", new Vector2(0, 0), new Vector2(0, 1), Color.white);
             ui.driftFill.pivot = new Vector2(0, 0.5f);
             ui.driftFillImage = ui.driftFill.GetComponent<Image>();
+
+            // nitro tank (above the drift bar)
+            var nbar = Panel(half, "NitroBar", new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Color(0, 0, 0, 0.55f));
+            nbar.sizeDelta = new Vector2(300, 26);
+            nbar.anchoredPosition = new Vector2(0, 150);
+            ui.nitroFill = Panel(nbar, "Fill", new Vector2(0, 0), new Vector2(0, 1), new Color(0.75f, 0.35f, 1f));
+            ui.nitroFill.pivot = new Vector2(0, 0.5f);
+            ui.nitroFillImage = ui.nitroFill.GetComponent<Image>();
+            ui.nitroLabel = MakeText(nbar, "NITRO", 24, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(600, 30));
             players[i] = ui;
         }
 
@@ -91,7 +101,7 @@ public class RaceHUD : MonoBehaviour
             case RaceManager.Phase.Countdown:
                 center.text = Mathf.CeilToInt(race.CountdownLeft).ToString();
                 centerSub.text = race.TrackName + (race.Loop ? "  ·  " + race.Laps + " LAPS" : "  ·  ONE WAY") +
-                                 "\nP1: WASD + Left Shift drift      P2: Arrows + Right Shift drift";
+                                 "\nDrift to fill NITRO, double-tap Shift to fire      ·      1 = Forest   2 = Arena";
                 break;
             case RaceManager.Phase.Racing:
                 center.text = Time.time - race.GoTime < 1f ? "GO!" : "";
@@ -104,7 +114,7 @@ public class RaceHUD : MonoBehaviour
             case RaceManager.Phase.Results:
                 resultsDim.SetActive(true);
                 center.text = "";
-                centerSub.text = "R / Enter = race again      N = next track";
+                centerSub.text = "R / Enter = race again      1 = Forest   2 = Arena";
                 centerSub.rectTransform.anchorMin = centerSub.rectTransform.anchorMax = new Vector2(0.5f, 0.08f);
                 winner.text = Names[race.WinnerIndex] + " WINS!";
                 winner.color = PlayerColors[race.WinnerIndex];
@@ -132,9 +142,16 @@ public class RaceHUD : MonoBehaviour
         ui.driftFillImage.color = car.DriftLevel == 2 ? new Color(1f, 0.55f, 0.1f)
                                 : car.DriftLevel == 1 ? new Color(0.3f, 0.8f, 1f) : Color.white;
 
+        ui.nitroFill.anchorMax = new Vector2(car.NitroActive ? 1f : car.Nitro, 1);
+        ui.nitroFill.sizeDelta = Vector2.zero;
+        bool flash = car.NitroReady && Mathf.Repeat(Time.time * 3f, 1f) < 0.5f;
+        ui.nitroFillImage.color = car.NitroActive ? new Color(1f, 0.85f, 1f) : flash ? new Color(1f, 0.6f, 1f) : new Color(0.75f, 0.35f, 1f);
+        ui.nitroLabel.text = car.NitroActive ? "NITRO!!" : car.NitroReady ? "NITRO READY · double-tap " + (i == 0 ? "L-SHIFT" : "R-SHIFT") : "NITRO";
+
         // short pop-up messages
         string msg = "";
         if (Time.time - car.Bed.LastSpillTime < 1.2f) msg = "-" + car.Bed.LastSpillCount + " GEM" + (car.Bed.LastSpillCount > 1 ? "S" : "");
+        else if (Time.time - car.LastNitroTime < 1.2f) msg = "NITRO!!";
         else if (Time.time - car.LastBoostTime < 1f) msg = car.LastBoostLevel == 2 ? "SUPER BOOST!" : "BOOST!";
         else if (car.Bed.Full && !r.finished) msg = "BED FULL";
         ui.popup.text = race.State == RaceManager.Phase.Results ? "" : msg;

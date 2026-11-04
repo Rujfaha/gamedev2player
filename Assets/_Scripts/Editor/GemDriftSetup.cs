@@ -41,6 +41,21 @@ public static class GemDriftSetup
         EditorApplication.EnterPlaymode();
     }
 
+    [MenuItem("Gem Drift/Build WebGL")]
+    public static void BuildWebGL()
+    {
+        if (EditorApplication.isPlaying) { EditorApplication.ExitPlaymode(); return; }
+        var opts = new BuildPlayerOptions
+        {
+            scenes = new[] { ForestScene, "Assets/Scenes/Main.unity" }, // Forest opens first
+            locationPathName = "Builds/WebGL",
+            target = BuildTarget.WebGL,
+            options = BuildOptions.None,
+        };
+        var report = UnityEditor.BuildPipeline.BuildPlayer(opts);
+        Debug.Log($"GEMDRIFT_BUILD {report.summary.result} size={report.summary.totalSize / (1024 * 1024)}MB errors={report.summary.totalErrors} time={report.summary.totalTime}");
+    }
+
     [MenuItem("Gem Drift/Rebuild Config")]
     public static void Rebuild()
     {
@@ -120,8 +135,8 @@ public static class GemDriftSetup
         }
         EditorBuildSettings.scenes = new[]
         {
-            new EditorBuildSettingsScene("Assets/Scenes/Main.unity", true),
             new EditorBuildSettingsScene(ForestScene, true),
+            new EditorBuildSettingsScene("Assets/Scenes/Main.unity", true),
         };
     }
 
