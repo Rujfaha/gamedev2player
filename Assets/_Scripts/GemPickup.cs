@@ -1,18 +1,28 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// A gem lying on the track. Track gems respawn 10 s after being taken;
-/// spilled gems fly out of a truck bed, land, and stay until someone grabs them.
+/// A physical gem: a Rigidbody with a convex gem-shaped collider, so it falls, rolls, bounces and settles
+/// on the road. A bigger trigger sphere lets any truck (player or AI) pick it up by driving close.
+/// Track gems respawn at their spot 10 s after being taken; spilled gems stay until someone grabs them.
 /// </summary>
 public class GemPickup : MonoBehaviour
 {
-    const float RespawnDelay = 10f, RestHeight = 0.9f, OwnerIgnoreTime = 1.2f;
+    const float RespawnDelay = 10f, RestHeight = 0.9f, OwnerIgnoreTime = 1.2f, PickupRadius = 1.4f, KillY = -20f;
+
+    /// <summary>Every gem in the scene (taken track gems included: check Available). The AI scans this.</summary>
+    public static readonly List<GemPickup> All = new List<GemPickup>();
+    static PhysicsMaterial material;
+
+    public bool Available => available;
+    public int Value => (int)color;
 
     GemColor color;
-    bool respawns, flying, available = true;
-    float respawnAt, ignoreUntil, phase;
-    Vector3 velocity;
+    bool respawns, available = true;
+    float respawnAt, ignoreUntil;
+    Vector3 home;
     CarController ignoreCar;
+    Rigidbody rb;
     Transform visual;
     Collider trigger;
 
@@ -23,13 +33,14 @@ public class GemPickup : MonoBehaviour
         return p;
     }
 
-    public static GemPickup CreateDropped(GemDriftConfig cfg, GemColor color, Vector3 pos, CarController from)
+    /// <summary>A gem thrown out of a truck bed: flies along push with an upward kick, and the owner can't re-grab it at once.</summary>
+    public static GemPickup CreateDropped(GemDriftConfig cfg, GemColor color, Vector3 pos, CarController from, Vector3 push)
     {
         var p = Create(cfg, color, pos);
-        p.flying = true;
-        var back = -from.transform.forward;
-        var side = from.transform.right * Random.Range(-1f, 1f);
-        p.velocity = from.GetComponent<Rigidbody>().linearVelocity * 0.4f + (back * 3f + side * 3f) + Vector3.up * 6f;
+        var side = Vector3.Cross(Vector3.up, push) * Random.Range(-1f, 1f);
+        p.rb.linearVelocity = from.GetComponent<Rigidbody>().linearVelocity * 0.4f
+                            + push * Random.Range(3f, 6f) + side * 3f + Vector3.up * Random.Range(4f, 6f);
+        p.rb.angularVelocity = Random.insideUnitSphere * 8f;
         p.ignoreCar = from;
         p.ignoreUntil = Time.time + OwnerIgnoreTime;
         return p;
@@ -37,55 +48,55 @@ public class GemPickup : MonoBehaviour
 
     static GemPickup Create(GemDriftConfig cfg, GemColor color, Vector3 pos)
     {
+        if (material == null)
+            material = new PhysicsMaterial("Gem")
+            {
+                dynamicFriction = 0.5f, staticFriction = 0.6f,
+                bounciness = 0.35f, bounceCombine = PhysicsMaterialCombine.Maximum,
+            };
+
         var go = new GameObject("GemPickup_" + color) { layer = Layers.Gem };
-        go.transform.position = pos;
+        go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, Random.value * 360f, 0f));
+
         var rb = go.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
+        rb.mass = 0.4f;
+        rb.linearDamping = 0.1f;
+        rb.angularDamping = 1.5f;                                   // lets a rolling gem come to rest
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // thrown gems don't tunnel through the road
+        rb.maxDepenetrationVelocity = 3f;                           // gems spawned overlapping ease apart instead of exploding
+
         var sc = go.AddComponent<SphereCollider>();
         sc.isTrigger = true;
-        sc.radius = 1.4f;
+        sc.radius = PickupRadius;
+
         var p = go.AddComponent<GemPickup>();
         p.color = color;
+        p.home = pos;
+        p.rb = rb;
         p.trigger = sc;
-        p.visual = GemMesh.CreateVisual(cfg, color, go.transform, color == GemColor.Gold ? 1.3f : 1.05f).transform;
-        p.phase = Random.value * 10f;
+        var vis = GemMesh.CreateVisual(cfg, color, go.transform, color == GemColor.Gold ? 1.3f : 1.05f);
+        vis.layer = Layers.Gem;
+        var mc = vis.AddComponent<MeshCollider>(); // the solid part, same shape as what you see
+        mc.convex = true;
+        mc.sharedMesh = GemMesh.Get();
+        mc.sharedMaterial = material;
+        mc.excludeLayers = 1 << Layers.Car;        // trucks drive through gems (the trigger picks them up) instead of bashing them
+        p.visual = vis.transform;
         return p;
     }
 
+    void OnEnable() => All.Add(this);
+    void OnDisable() => All.Remove(this);
+
     void Update()
     {
-        float t = Time.time;
         if (!available)
         {
-            if (respawns && t >= respawnAt) SetAvailable(true);
+            if (respawns && Time.time >= respawnAt) SetAvailable(true);
             return;
         }
-
-        visual.localRotation = Quaternion.Euler(0, (t + phase) * 90f, 0);
-        visual.localPosition = flying ? Vector3.zero : Vector3.up * Mathf.Sin((t + phase) * 2.5f) * 0.15f;
-
-        if (flying) Fly(Time.deltaTime);
-    }
-
-    void Fly(float dt)
-    {
-        velocity += Physics.gravity * dt;
-        var step = velocity * dt;
-        var flat = new Vector3(step.x, 0, step.z);
-        // stop at walls so gems don't vanish through the barrier
-        if (flat.sqrMagnitude > 0 &&
-            Physics.Raycast(transform.position, flat.normalized, flat.magnitude + 0.3f, 1 << Layers.Wall, QueryTriggerInteraction.Ignore))
-        {
-            velocity.x *= -0.3f; velocity.z *= -0.3f;
-            step = new Vector3(0, step.y, 0);
-        }
-        var next = transform.position + step;
-        if (next.y <= RestHeight && velocity.y < 0)
-        {
-            next.y = RestHeight;
-            flying = false;
-        }
-        transform.position = next;
+        if (transform.position.y < KillY) Take(); // fell off the world
     }
 
     void OnTriggerStay(Collider other)
@@ -94,20 +105,23 @@ public class GemPickup : MonoBehaviour
         var car = other.attachedRigidbody ? other.attachedRigidbody.GetComponent<CarController>() : null;
         if (car == null) return;
         if (car == ignoreCar && Time.time < ignoreUntil) return;
-        if (!car.Bed.TryAdd(color)) return;
+        if (car.Bed.TryAdd(color)) Take();
+    }
 
-        if (respawns)
-        {
-            SetAvailable(false);
-            respawnAt = Time.time + RespawnDelay;
-        }
+    void Take()
+    {
+        SetAvailable(false);
+        if (respawns) respawnAt = Time.time + RespawnDelay;
         else Destroy(gameObject);
     }
 
     void SetAvailable(bool on)
     {
         available = on;
-        visual.gameObject.SetActive(on);
+        if (on) transform.SetPositionAndRotation(home, Quaternion.Euler(0f, Random.value * 360f, 0f));
+        else rb.linearVelocity = rb.angularVelocity = Vector3.zero; // must happen before it goes kinematic
+        rb.isKinematic = !on;
+        visual.gameObject.SetActive(on); // also switches the solid collider
         trigger.enabled = on;
     }
 }

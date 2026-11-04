@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// Countdown → race (3 laps through checkpoints in order) → when the first truck finishes the other
 /// has 10 s → results. Score = value of gems in the bed + 5 for finishing first (−3 if not finished).
+/// Racers = the two players (index 0, 1) followed by any AI trucks; all are scored the same way.
 /// </summary>
 public class RaceManager : MonoBehaviour
 {
@@ -35,6 +36,7 @@ public class RaceManager : MonoBehaviour
     public Racer[] Racers { get; private set; }
     public int WinnerIndex { get; private set; } = -1;
     public float GoTime { get; private set; } = -99f;
+    public Transform[] Checkpoints => checkpoints;
 
     Transform[] checkpoints;
     int finishCount;

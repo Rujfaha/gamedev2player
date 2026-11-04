@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Builds the whole race when the "Main" scene loads: track (hand-built from the scene if present,
-/// otherwise a generated test circuit), two trucks, gems, split-screen cameras, race rules and HUD.
+/// otherwise a generated test circuit), two player trucks plus AI trucks, gems, split-screen cameras, race rules and HUD.
 /// Nothing has to be placed in the scene by hand for the game to be playable.
 /// </summary>
 public class GameBootstrap : MonoBehaviour
@@ -44,9 +44,15 @@ public class GameBootstrap : MonoBehaviour
 
         var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform);
 
-        var cars = new CarController[2];
+        int aiCount = Mathf.Max(0, cfg.aiCount);
+        var cars = new CarController[2 + aiCount];
         for (int i = 0; i < 2; i++)
             cars[i] = CarController.Create(cfg, i, layout.starts[i].position, layout.starts[i].rotation);
+        for (int k = 0; k < aiCount; k++)
+        {
+            var start = AIStart(layout, k);
+            cars[2 + k] = CarController.Create(cfg, 2 + k, start.position, start.rotation, true);
+        }
 
         foreach (var (pos, color) in layout.gems)
             GemPickup.CreateOnTrack(cfg, color, new Vector3(pos.x, 0f, pos.z));
@@ -58,5 +64,14 @@ public class GameBootstrap : MonoBehaviour
         var race = gameObject.AddComponent<RaceManager>();
         race.Init(cars, layout.checkpoints);
         gameObject.AddComponent<RaceHUD>().Init(race);
+    }
+
+    /// <summary>An optional Start_AI1, Start_AI2.. marker in the scene, else a grid slot behind Start_P1/P2 (6 m per row).</summary>
+    static Pose AIStart(TrackLayout layout, int k)
+    {
+        var marker = GameObject.Find("Start_AI" + (k + 1));
+        if (marker != null) return new Pose(marker.transform.position, marker.transform.rotation);
+        var s = layout.starts[k % 2];
+        return new Pose(s.position - s.rotation * Vector3.forward * (6f * (1 + k / 2)), s.rotation);
     }
 }

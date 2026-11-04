@@ -28,7 +28,8 @@ so say so in chat first.
   in driving order. `CP_00` is the finish line. Tag: `Checkpoint`.
 - Gem spawns: empty objects named `GemSpawn_Red_01`, `GemSpawn_Blue_01`,
   `GemSpawn_Gold_01`, … Tag: `GemSpawn`.
-- Start positions: `Start_P1`, `Start_P2`, facing the driving direction.
+- Start positions: `Start_P1`, `Start_P2`, facing the driving direction. Optional `Start_AI1`, `Start_AI2`, …
+  for the AI trucks; without them the AI trucks line up in rows behind P1/P2.
 - Layers: `Road` (6), `Wall` (7, must have colliders), `Car` (8), `Gem` (9).
 
 ## Play it
@@ -50,11 +51,14 @@ that track is used instead of the generated test circuit.
 
 ## Rules (in code)
 
-- 3 laps through the checkpoints in order. After the first truck finishes, the other has 10 s.
-- Gems: red 1, blue 2, gold 3 (gold sits on the inside of sharp corners). Track gems respawn after 10 s.
+- 3 laps through the checkpoints in order. After the first truck finishes, the others have 10 s.
+- `GemDriftConfig.aiCount` (default 2) AI trucks race with the two players and are scored the same way.
+- Gems: red 1, blue 2, gold 3 (gold sits on the inside of sharp corners). Gems are physics objects
+  (they roll and bounce). Track gems respawn after 10 s.
 - The bed holds 12 gems, and a full bed makes the truck up to 15% slower.
-- Drift 0.8 s = boost, 1.6 s = super boost. Each 2 s of drifting spills a gem. Hitting the other
-  truck spills 2 gems, and hitting a wall hard spills 1.
+- Drift 0.8 s = boost, 1.6 s = super boost. Each 2 s of drifting spills a gem. Ramming a truck fast
+  enough (`crashMinSpeed`) makes the truck that was hit drop 1-3 gems (1.5 s cooldown); anyone can pick
+  them up, but the owner has to wait 1.2 s. Hitting a wall hard spills 1.
 - Score = gem value + 5 for first place (−3 for not finishing). Highest wins, and a tie goes to
   whoever finished first.
 
@@ -66,6 +70,7 @@ that track is used instead of the generated test circuit.
 | `TrackBuilder` | Generated test circuit, or reads a hand-built track from the scene |
 | `CarController` | Truck physics, drift, boost, crashes, respawn |
 | `PlayerControls` | Keyboard bindings per player (Input System) |
+| `CarAI` | Drives an AI truck by feeding `CarController` steer/throttle/drift (follows checkpoints, grabs gems) |
 | `GemBed` / `GemPickup` / `GemMesh` | Gems in the bed, on the track, and the gem mesh |
 | `RaceManager` | Countdown, laps, finish, last call, scoring |
 | `RaceHUD` | Split-screen HUD and results |
