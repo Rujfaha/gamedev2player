@@ -11,14 +11,18 @@ public class CarAI : MonoBehaviour
     const float LookAhead = 14f;                  // m from a checkpoint where the aim point starts sliding to the next one
     const float GemRange = 16f, GemPathWidth = 4f; // gems this close to the path (and ahead) are worth a detour
     const float StuckSpeed = 1.5f, StuckTime = 1.2f, ReverseTime = 1f, NoProgressRespawn = 12f;
-    // Blocking: a player this close behind (and trying to pass) makes the AI slide over into their line
+    // Blocking is occasional: the AI races for the finish, but now and then, when a truck (player or AI) is
+    // right behind trying to pass, it slides into that truck's line for a couple of seconds, then cools down.
     const float BlockBehind = 16f, BlockSide = 7f, BlockMaxShift = 4.5f;
+    const float BlockChance = 0.3f, BlockDuration = 2.5f, BlockCooldownMin = 8f, BlockCooldownMax = 15f;
 
     CarController car;
     GemPickup gem;
     float speedFactor, laneOffset;                // per-AI skill and where on the road it likes to drive
     float aggression;                             // 0..1: how hard this AI blocks (each truck differs)
-    float blockShift;                             // current sideways shift toward the passing player (m)
+    float blockShift;                             // current sideways shift toward the truck being blocked (m)
+    CarController blockTarget, lastRolled;        // who we're blocking / who we already rolled the dice for
+    float blockUntil, nextBlockAllowed, lastPasserSeen;
     float stuckTimer, reverseUntil, noGemUntil, nextGemScan, driftReadyAt, progressAt;
     int lastPassed;
 
@@ -45,18 +49,31 @@ public class CarAI : MonoBehaviour
         Vector3 aim = Vector3.Lerp(a.position, b.position, 1f - Mathf.Clamp01(dist / LookAhead)) + a.right * laneOffset;
         float bend = Vector3.Angle(Flat(a.position - pos), Flat(b.position - a.position)); // how sharp the road turns ahead
 
-        // Block a player who is right behind and trying to pass: drift over into their line.
-        // The shift eases in (reaction time) so a quick move the other way still gets past.
-        float wantShift = 0f;
+        // Occasionally block a truck that's right behind and trying to pass. One dice roll per encounter,
+        // a short block, then a long cooldown, so most of the time the AI just races for the finish.
         var passer = FindPasser(race, pos);
-        if (passer != null && bend < 45f)
+        if (passer != null) lastPasserSeen = Time.time;
+        else if (Time.time - lastPasserSeen > 2f) lastRolled = null;
+        if (blockTarget == null && passer != null && passer != lastRolled && Time.time >= nextBlockAllowed)
         {
-            float side = Vector3.Dot(passer.transform.position - pos, transform.right);
+            lastRolled = passer;
+            if (Random.value < BlockChance * aggression) { blockTarget = passer; blockUntil = Time.time + BlockDuration; }
+        }
+        if (blockTarget != null && (Time.time > blockUntil || passer != blockTarget))
+        {
+            blockTarget = null;
+            nextBlockAllowed = Time.time + Random.Range(BlockCooldownMin, BlockCooldownMax);
+        }
+        float wantShift = 0f;
+        if (blockTarget != null && bend < 45f)
+        {
+            float side = Vector3.Dot(blockTarget.transform.position - pos, transform.right);
             wantShift = Mathf.Clamp(side, -BlockMaxShift, BlockMaxShift) * aggression;
         }
+        // the shift eases in (reaction time), so a quick move the other way still gets past
         blockShift = Mathf.MoveTowards(blockShift, wantShift, 3.5f * aggression * Time.fixedDeltaTime);
         aim += transform.right * blockShift;
-        bool blocking = passer != null;
+        bool blocking = blockTarget != null;
 
         // Detour for a gem near the path (not while blocking)
         if (Time.time >= nextGemScan) { nextGemScan = Time.time + 0.25f; gem = blocking ? null : FindGem(pos, aim); }
@@ -105,7 +122,7 @@ public class CarAI : MonoBehaviour
         car.AIDrift = drift;
     }
 
-    /// <summary>The nearest player truck close behind us that is catching up (i.e. about to overtake).</summary>
+    /// <summary>The nearest truck (player or AI) close behind us that is catching up, i.e. about to overtake.</summary>
     CarController FindPasser(RaceManager race, Vector3 pos)
     {
         CarController best = null;
@@ -113,7 +130,7 @@ public class CarAI : MonoBehaviour
         foreach (var r in race.Racers)
         {
             var other = r.car;
-            if (other == car || other.IsAI || r.finished) continue;
+            if (other == car || r.finished) continue;
             Vector3 d = Flat(other.transform.position - pos);
             float behind = -Vector3.Dot(d, Flat(transform.forward));
             float side = Mathf.Abs(Vector3.Dot(d, transform.right));
