@@ -50,19 +50,22 @@ public class GemBed : MonoBehaviour
         return true;
     }
 
-    public void Spill(int n)
+    /// <summary>Drops the top n gems as free physics gems. They fly out along push (default: backwards).</summary>
+    public void Spill(int n, Vector3? push = null)
     {
         if (Locked || n <= 0 || gems.Count == 0) return;
+        var dir = push ?? -car.transform.forward;
         int spilled = 0;
         for (int i = 0; i < n && gems.Count > 0; i++)
         {
             int last = gems.Count - 1;
             var color = gems[last];
-            var pos = visuals[last].transform.position + Vector3.up * 0.4f;
+            // lift each gem a bit more so gems dropped together don't spawn inside each other
+            var pos = visuals[last].transform.position + Vector3.up * (0.4f + 0.6f * spilled);
             Destroy(visuals[last]);
             gems.RemoveAt(last);
             visuals.RemoveAt(last);
-            GemPickup.CreateDropped(cfg, color, pos, car);
+            GemPickup.CreateDropped(cfg, color, pos, car, dir);
             spilled++;
         }
         LastSpillTime = Time.time;

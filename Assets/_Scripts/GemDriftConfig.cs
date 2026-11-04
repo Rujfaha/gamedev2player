@@ -14,6 +14,19 @@ public class GemDriftConfig : ScriptableObject
     public Vector2 bedSize;         // bed floor width (x) and length (y)
     public Color[] playerTints = { new Color(1f, 0.55f, 0.5f), new Color(0.55f, 0.75f, 1f) };
 
+    [Header("AI racers")]
+    public int aiCount = 2;         // computer-driven trucks racing alongside the two players
+    public Color[] aiTints =
+    {
+        new Color(1f, 0.85f, 0.4f), new Color(0.6f, 0.95f, 0.6f), new Color(0.8f, 0.6f, 1f), new Color(0.75f, 0.75f, 0.75f),
+    };
+
+    [Header("Crash attacks")]
+    public float crashMinSpeed = 8f;    // closing speed (m/s) a ram needs before the rammed truck loses gems
+    public int crashDropMin = 1;        // gems the rammed truck drops: random from min to max (inclusive)
+    public int crashDropMax = 3;
+    public float crashCooldown = 1.5f;  // seconds before the same truck can lose gems to a crash again
+
     [Header("Materials")]
     public Material road, roadLine, ground, wallA, wallB, checker;
     public Material gemRed, gemBlue, gemGold;

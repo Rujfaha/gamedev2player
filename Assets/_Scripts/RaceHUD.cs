@@ -12,6 +12,10 @@ public class RaceHUD : MonoBehaviour
     const float MapSize = 260f;
     static readonly Color[] PlayerColors = { new Color(1f, 0.45f, 0.4f), new Color(0.45f, 0.7f, 1f) };
 
+    // Racers 0 and 1 are the players (one HUD half each); the rest are AI trucks, which only show up in positions and results.
+    static string Name(int racer) => racer < Names.Length ? Names[racer] : "AI " + (racer - Names.Length + 1);
+    static string Ordinal(int n) => n == 1 ? "1st" : n == 2 ? "2nd" : n == 3 ? "3rd" : n + "th";
+
     class PlayerUI
     {
         public Text lap, position, gems, speed, popup, result;
@@ -55,7 +59,7 @@ public class RaceHUD : MonoBehaviour
             ui.lap = MakeText(half, "", 40, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(30, -75), new Vector2(400, 60));
             // minimap top-right, position (1st/2nd) just left of it
             var cars = System.Array.ConvertAll(race.Racers, r => r.car);
-            Minimap.Create(half, new Vector2(MapSize, MapSize), layout, cars, i, PlayerColors);
+            Minimap.Create(half, new Vector2(MapSize, MapSize), layout, cars, i, MapColors(cars.Length));
             ui.position = MakeText(half, "", 90, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-MapSize - 44, -10), new Vector2(300, 110));
             ui.gems = MakeText(half, "", 40, TextAnchor.LowerLeft, new Vector2(0, 0), new Vector2(30, 30), new Vector2(520, 60));
             ui.speed = MakeText(half, "", 40, TextAnchor.LowerRight, new Vector2(1, 0), new Vector2(-30, 30), new Vector2(300, 60));
@@ -114,10 +118,10 @@ public class RaceHUD : MonoBehaviour
             case RaceManager.Phase.Results:
                 resultsDim.SetActive(true);
                 center.text = "";
-                centerSub.text = "R / Enter = race again      1 = Forest   2 = Arena";
+                centerSub.text = Standings() + "R / Enter = race again      1 = Forest   2 = Arena";
                 centerSub.rectTransform.anchorMin = centerSub.rectTransform.anchorMax = new Vector2(0.5f, 0.08f);
-                winner.text = Names[race.WinnerIndex] + " WINS!";
-                winner.color = PlayerColors[race.WinnerIndex];
+                winner.text = Name(race.WinnerIndex) + " WINS!";
+                winner.color = race.WinnerIndex < PlayerColors.Length ? PlayerColors[race.WinnerIndex] : Color.white;
                 break;
         }
     }
@@ -131,8 +135,7 @@ public class RaceHUD : MonoBehaviour
         ui.lap.text = r.finished ? "FINISHED"
                     : race.Loop ? "LAP " + race.DisplayLap(i) + "/" + race.Laps
                     : "ROUTE " + Mathf.RoundToInt(100f * r.passed / race.CheckpointCount) + "%";
-        int pos = race.PositionOf(i);
-        ui.position.text = pos == 1 ? "1st" : "2nd";
+        ui.position.text = Ordinal(race.PositionOf(i));
         ui.gems.text = "GEMS " + car.Bed.Count + "/" + GemBed.Capacity + "   VALUE " + car.Bed.Value;
         ui.speed.text = Mathf.RoundToInt(Mathf.Abs(car.Speed) * 3.6f) + " km/h";
 
@@ -161,14 +164,33 @@ public class RaceHUD : MonoBehaviour
         {
             string finish = r.dnf ? "DID NOT FINISH  (-" + RaceManager.DnfPenalty + ")"
                           : r.finishOrder == 1 ? "FINISHED 1st  (+" + RaceManager.FirstPlaceBonus + ")"
-                          : "FINISHED " + (r.finishOrder == 2 ? "2nd" : r.finishOrder + "th") + "  (+0)";
+                          : "FINISHED " + Ordinal(r.finishOrder) + "  (+0)";
             ui.result.text = Names[i] + "\n\nGems value  " + r.gemScore + "\n" + finish + "\n\nTOTAL  " + r.Total;
         }
         else if (r.finished)
         {
-            ui.result.text = "FINISHED " + (r.finishOrder == 1 ? "1st!" : "2nd") + "\n" + FormatTime(r.finishTime);
+            ui.result.text = "FINISHED " + Ordinal(r.finishOrder) + (r.finishOrder == 1 ? "!" : "") + "\n" + FormatTime(r.finishTime);
         }
         else ui.result.text = "";
+    }
+
+    /// <summary>One line with every racer's total, e.g. "P1 12   P2 8   AI 1 15   AI 2 9", so AI scores are visible too.</summary>
+    string Standings()
+    {
+        var line = "";
+        for (int i = 0; i < race.Racers.Length; i++) line += Name(i) + " " + race.Racers[i].Total + "     ";
+        return line + "\n";
+    }
+
+    // players in their HUD colours, AI trucks in their body tint
+    static Color[] MapColors(int count)
+    {
+        var cfg = GemDriftConfig.Load();
+        var cols = new Color[count];
+        for (int k = 0; k < count; k++)
+            cols[k] = k < PlayerColors.Length ? PlayerColors[k]
+                    : cfg != null && cfg.aiTints.Length > 0 ? cfg.aiTints[(k - 2) % cfg.aiTints.Length] : Color.gray;
+        return cols;
     }
 
     static string FormatTime(float t) => Mathf.FloorToInt(t / 60f) + ":" + (t % 60f).ToString("00.00");

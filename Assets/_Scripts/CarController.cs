@@ -4,6 +4,7 @@ using UnityEngine;
 /// Arcade truck physics: throttle/brake/steer, hold drift to slide, release for a boost.
 /// Drifting also fills the NITRO tank; when it's full, double-tap the drift key to fire it.
 /// Same code for both players; only the input bindings (PlayerControls) differ.
+/// An AI truck uses the same physics: CarAI just fills AIMove / AIDrift instead of the keyboard.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class CarController : MonoBehaviour
@@ -34,16 +35,21 @@ public class CarController : MonoBehaviour
     public float nitroSpeedMultiplier = 1.45f;
     public const float DoubleTapWindow = 0.3f;
 
-    [Header("Crashes")]
-    public float carCrashImpact = 8f;   // relative speed along the hit normal
+    [Header("Crashes (ramming a car: see GemDriftConfig)")]
     public float wallCrashImpact = 12f;
 
     public int PlayerIndex { get; private set; }
     public bool CanDrive { get; set; }
+    public bool IsAI => controls == null;
+    /// <summary>Input for AI trucks (x = steer, y = throttle), written by CarAI.</summary>
+    public Vector2 AIMove { get; set; }
+    public bool AIDrift { get; set; }
     public GemBed Bed { get; private set; }
     public float Speed => Vector3.Dot(rb.linearVelocity, transform.forward);
     public bool Drifting => drifting;
     public float DriftTime => drifting ? driftTime : 0f;
+    /// <summary>Velocity going into the latest physics step, i.e. before any collision changed it.</summary>
+    public Vector3 PreImpactVelocity { get; private set; }
     public int DriftLevel => !drifting ? 0 : driftTime >= SuperBoostTime ? 2 : driftTime >= MiniBoostTime ? 1 : 0;
     public bool Boosting => boostTimer > 0f || nitroTimer > 0f;
     public float Nitro { get; private set; }          // 0..1
@@ -53,7 +59,8 @@ public class CarController : MonoBehaviour
     public float LastBoostTime { get; private set; } = -99f;
     public int LastBoostLevel { get; private set; }
 
-    PlayerControls controls;
+    PlayerControls controls;   // null for AI trucks
+    GemDriftConfig cfg;
     Rigidbody rb;
     Transform body;
     TrailRenderer[] skids;
@@ -64,9 +71,10 @@ public class CarController : MonoBehaviour
     Vector3 respawnPos;
     Quaternion respawnRot;
 
-    public static CarController Create(GemDriftConfig cfg, int index, Vector3 pos, Quaternion rot)
+    /// <summary>Players are index 0 and 1. AI trucks (ai = true) use index 2 and up.</summary>
+    public static CarController Create(GemDriftConfig cfg, int index, Vector3 pos, Quaternion rot, bool ai = false)
     {
-        var root = new GameObject("Car_P" + (index + 1)) { layer = Layers.Car };
+        var root = new GameObject(ai ? "Car_AI" + (index - 1) : "Car_P" + (index + 1)) { layer = Layers.Car };
         root.transform.SetPositionAndRotation(pos, rot);
 
         var rb = root.AddComponent<Rigidbody>();
@@ -95,20 +103,22 @@ public class CarController : MonoBehaviour
         model.transform.localPosition = cfg.modelOffset;
         foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
         var block = new MaterialPropertyBlock();
-        block.SetColor("_Color", cfg.playerTints[index]);
+        block.SetColor("_Color", ai ? cfg.aiTints[(index - 2) % cfg.aiTints.Length] : cfg.playerTints[index]);
         foreach (var r in model.GetComponentsInChildren<Renderer>()) r.SetPropertyBlock(block);
 
         var car = root.AddComponent<CarController>();
-        car.Setup(cfg, index, body);
+        car.Setup(cfg, index, body, ai);
+        if (ai) root.AddComponent<CarAI>();
         return car;
     }
 
-    void Setup(GemDriftConfig cfg, int index, Transform bodyTransform)
+    void Setup(GemDriftConfig cfg, int index, Transform bodyTransform, bool ai)
     {
+        this.cfg = cfg;
         PlayerIndex = index;
         rb = GetComponent<Rigidbody>();
         body = bodyTransform;
-        controls = new PlayerControls(index);
+        controls = ai ? null : new PlayerControls(index);
         Bed = gameObject.AddComponent<GemBed>();
         Bed.Setup(cfg, body, this);
         SetRespawn(transform.position, transform.rotation);
@@ -174,10 +184,10 @@ public class CarController : MonoBehaviour
 
     void Update()
     {
-        if (CanDrive && controls.ResetPressed) Respawn();
+        if (CanDrive && !IsAI && controls.ResetPressed) Respawn();
 
-        // double-tap drift with a full tank = NITRO
-        if (CanDrive && controls.DriftPressed)
+        // double-tap drift with a full tank = NITRO (AI trucks call TryFireNitro instead)
+        if (CanDrive && !IsAI && controls.DriftPressed)
         {
             if (Time.time - lastDriftTap <= DoubleTapWindow && NitroReady) FireNitro();
             lastDriftTap = Time.time;
@@ -204,8 +214,8 @@ public class CarController : MonoBehaviour
     void FixedUpdate()
     {
         float dt = Time.fixedDeltaTime;
-        Vector2 input = CanDrive ? controls.Move : Vector2.zero;
-        bool driftHeld = CanDrive && controls.DriftHeld;
+        Vector2 input = !CanDrive ? Vector2.zero : IsAI ? AIMove : controls.Move;
+        bool driftHeld = CanDrive && (IsAI ? AIDrift : controls.DriftHeld);
         float throttle = input.y, steer = input.x;
 
         Vector3 v = rb.linearVelocity;
@@ -279,6 +289,7 @@ public class CarController : MonoBehaviour
         }
         rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, yawRate * dt, 0f));
         rb.angularVelocity = new Vector3(0f, rb.angularVelocity.y * 0.85f, 0f);
+        PreImpactVelocity = rb.linearVelocity; // collisions resolve after FixedUpdate, so this is the pre-hit velocity
     }
 
     void EndDrift(bool released)
@@ -297,6 +308,14 @@ public class CarController : MonoBehaviour
         LastBoostLevel = level;
     }
 
+    /// <summary>For CarAI: fires the nitro if the tank is full.</summary>
+    public bool TryFireNitro()
+    {
+        if (!CanDrive || !NitroReady || NitroActive) return false;
+        FireNitro();
+        return true;
+    }
+
     void FireNitro()
     {
         Nitro = 0f;
@@ -308,12 +327,24 @@ public class CarController : MonoBehaviour
     void OnCollisionEnter(Collision c)
     {
         if (Time.time < crashCooldownUntil || c.contactCount == 0) return;
-        float impact = Mathf.Abs(Vector3.Dot(c.relativeVelocity, c.GetContact(0).normal));
-        bool hitCar = c.rigidbody != null && c.rigidbody.GetComponent<CarController>() != null;
-        if (hitCar && impact > carCrashImpact) Bed.Spill(2);
-        else if (c.gameObject.layer == Layers.Wall && impact > wallCrashImpact) Bed.Spill(1);
-        else return;
-        crashCooldownUntil = Time.time + 1f;
+        var other = c.rigidbody != null ? c.rigidbody.GetComponent<CarController>() : null;
+        if (other != null)
+        {
+            // Ramming: only the truck that was driven into drops gems. Both trucks run this, and the
+            // one whose pre-hit velocity points more toward the other is the attacker, so it returns.
+            Vector3 toMe = Vector3.ProjectOnPlane(transform.position - other.transform.position, Vector3.up).normalized;
+            float theirPush = Vector3.Dot(other.PreImpactVelocity, toMe);
+            float myPush = Vector3.Dot(PreImpactVelocity, -toMe);
+            if (theirPush + myPush < cfg.crashMinSpeed || theirPush <= myPush) return;
+            Bed.Spill(Random.Range(cfg.crashDropMin, cfg.crashDropMax + 1), toMe);
+        }
+        else
+        {
+            float impact = Mathf.Abs(Vector3.Dot(c.relativeVelocity, c.GetContact(0).normal));
+            if (c.gameObject.layer != Layers.Wall || impact <= wallCrashImpact) return;
+            Bed.Spill(1);
+        }
+        crashCooldownUntil = Time.time + cfg.crashCooldown;
     }
 
     void OnDestroy() => controls?.Dispose();
