@@ -9,6 +9,7 @@ using UnityEngine.UI;
 public class RaceHUD : MonoBehaviour
 {
     static readonly string[] Names = { "P1", "P2" };
+    const float MapSize = 260f;
     static readonly Color[] PlayerColors = { new Color(1f, 0.45f, 0.4f), new Color(0.45f, 0.7f, 1f) };
 
     class PlayerUI
@@ -24,7 +25,7 @@ public class RaceHUD : MonoBehaviour
     GameObject resultsDim;
     Font font;
 
-    public void Init(RaceManager raceManager)
+    public void Init(RaceManager raceManager, TrackLayout layout)
     {
         race = raceManager;
         font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -51,7 +52,10 @@ public class RaceHUD : MonoBehaviour
             var tag = MakeText(half, Names[i], 44, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(30, -20), new Vector2(120, 60));
             tag.color = PlayerColors[i];
             ui.lap = MakeText(half, "", 40, TextAnchor.UpperLeft, new Vector2(0, 1), new Vector2(30, -75), new Vector2(400, 60));
-            ui.position = MakeText(half, "", 90, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-30, -10), new Vector2(300, 110));
+            // minimap top-right, position (1st/2nd) just left of it
+            var cars = System.Array.ConvertAll(race.Racers, r => r.car);
+            Minimap.Create(half, new Vector2(MapSize, MapSize), layout, cars, i, PlayerColors);
+            ui.position = MakeText(half, "", 90, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(-MapSize - 44, -10), new Vector2(300, 110));
             ui.gems = MakeText(half, "", 40, TextAnchor.LowerLeft, new Vector2(0, 0), new Vector2(30, 30), new Vector2(520, 60));
             ui.speed = MakeText(half, "", 40, TextAnchor.LowerRight, new Vector2(1, 0), new Vector2(-30, 30), new Vector2(300, 60));
             ui.popup = MakeText(half, "", 52, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.7f), Vector2.zero, new Vector2(800, 80));

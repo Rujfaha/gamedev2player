@@ -14,6 +14,8 @@ public class TrackLayout
     public int laps = 3;
     public Pose[] starts = new Pose[2];
     public List<(Vector3 pos, GemColor color)> gems = new List<(Vector3, GemColor)>();
+    public List<Vector3> path = new List<Vector3>(); // centre line, for the minimap
+    public float roadWidth = 14f;
 }
 
 /// <summary>
@@ -86,6 +88,7 @@ public static class TrackBuilder
         }
         // A track without a GameObject named "PointToPoint" is treated as a loop.
         layout.loop = GameObject.Find("PointToPoint") == null;
+        layout.path = layout.checkpoints.Select(c => c.position).ToList();
         layout.laps = layout.loop ? 3 : 1;
         for (int p = 0; p < 2; p++)
         {
@@ -146,7 +149,11 @@ public static class TrackBuilder
         int finishIdx = loop ? 0 : Mathf.Clamp(Mathf.RoundToInt((total - RunOff) / SampleSpacing), 0, n - 1);
         FinishLine(root, cfg, pts[finishIdx], tangents[finishIdx], style.width);
 
-        var layout = new TrackLayout { loop = loop, laps = loop ? 3 : 1, name = id == TrackId.Forest ? "FOREST SWITCHBACK" : "CPE ARENA CIRCUIT" };
+        var layout = new TrackLayout
+        {
+            loop = loop, laps = loop ? 3 : 1, path = pts, roadWidth = style.width,
+            name = id == TrackId.Forest ? "FOREST SWITCHBACK" : "CPE ARENA CIRCUIT",
+        };
 
         // Checkpoints every ~30 m. Loop: CP_00 = finish line at sample 0. Point-to-point: last CP = finish line.
         int cpStride = Mathf.RoundToInt(CheckpointSpacing / SampleSpacing);

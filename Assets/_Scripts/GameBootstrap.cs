@@ -65,6 +65,6 @@ public class GameBootstrap : MonoBehaviour
 
         var race = gameObject.AddComponent<RaceManager>();
         race.Init(cars, layout);
-        gameObject.AddComponent<RaceHUD>().Init(race);
+        gameObject.AddComponent<RaceHUD>().Init(race, layout);
     }
 }

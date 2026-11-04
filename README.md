@@ -79,6 +79,7 @@ that track is used instead of the generated test circuit.
 | `GemBed` / `GemPickup` / `GemMesh` | Gems in the bed, on the track, and the gem mesh |
 | `RaceManager` | Countdown, laps, finish, last call, scoring |
 | `RaceHUD` | Split-screen HUD and results |
+| `Minimap` | North-up course map, top-right of each half: both trucks as arrows (own arrow bigger, white outline) |
 | `FollowCamera` | Chase camera per half |
 | `Editor/GemDriftSetup` | Menu: Play Race, Rebuild Config (materials + truck measurements) |
 
