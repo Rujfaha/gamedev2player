@@ -12,6 +12,8 @@ using UnityEngine;
 public static class GemDriftSetup
 {
     const string CarModelPath = "Assets/_Art/Kenney/CarKit/delivery-flat.fbx";
+    const string KitPath = "Assets/_Art/Kenney/RacingKit/";
+    const string ForestScene = "Assets/Scenes/Forest.unity";
     const string ConfigPath = "Assets/_Scripts/Resources/GemDriftConfig.asset";
     const string GenFolder = "Assets/_Scripts/Generated";
     const float TargetCarLength = 4.2f;
@@ -24,18 +26,26 @@ public static class GemDriftSetup
         };
     }
 
-    [MenuItem("Gem Drift/Play Race %#p")]
-    public static void PlayRace()
+    [MenuItem("Gem Drift/Play Circuit (Main) %#p")]
+    public static void PlayRace() => Play("Assets/Scenes/Main.unity");
+
+    [MenuItem("Gem Drift/Play Forest %#o")]
+    public static void PlayForest() => Play("Assets/Scenes/Forest.unity");
+
+    static void Play(string scenePath)
     {
         if (EditorApplication.isPlaying) { EditorApplication.ExitPlaymode(); return; }
         if (!UnityEditor.SceneManagement.EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
-        UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/Main.unity");
+        if (!File.Exists(scenePath)) Rebuild();
+        UnityEditor.SceneManagement.EditorSceneManager.OpenScene(scenePath);
         EditorApplication.EnterPlaymode();
     }
 
     [MenuItem("Gem Drift/Rebuild Config")]
     public static void Rebuild()
     {
+        if (EditorApplication.isPlaying) { Debug.LogWarning("Gem Drift: stop Play mode before Rebuild Config."); return; }
+        EnsureForestScene(); // first: switching scenes unloads in-memory assets
         Directory.CreateDirectory("Assets/_Scripts/Resources");
         Directory.CreateDirectory(GenFolder);
         AssetDatabase.Refresh();
@@ -59,6 +69,14 @@ public static class GemDriftSetup
         cfg.skid = SpriteMat("Skid", new Color(0.05f, 0.05f, 0.05f, 0.55f));
         cfg.spark = SpriteMat("Spark", Color.white);
 
+        // Forest course
+        cfg.dirtRoad = Mat("DirtRoad", new Color(0.72f, 0.6f, 0.43f), 0.05f);
+        cfg.forestGround = Mat("ForestGround", new Color(0.22f, 0.38f, 0.2f), 0.02f);
+        cfg.woodA = Mat("WoodA", new Color(0.45f, 0.29f, 0.16f), 0.1f);
+        cfg.woodB = Mat("WoodB", new Color(0.62f, 0.45f, 0.27f), 0.1f);
+        cfg.treeModels = new[] { ReadableModel(KitPath + "treeLarge.fbx"), ReadableModel(KitPath + "treeSmall.fbx") };
+        cfg.finishArch = AssetDatabase.LoadAssetAtPath<GameObject>(KitPath + "overheadRoundColored.fbx");
+
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(CarModelPath);
         if (model == null) { Debug.LogError("Gem Drift: car model not found at " + CarModelPath); return; }
         cfg.carModel = model;
@@ -67,6 +85,44 @@ public static class GemDriftSetup
         EditorUtility.SetDirty(cfg);
         AssetDatabase.SaveAssets();
         Debug.Log($"GEMDRIFT_SETUP_OK yaw={cfg.modelYaw} scale={cfg.modelScale:F3} size={cfg.carSize} bed={cfg.bedCenter} bedSize={cfg.bedSize}");
+    }
+
+    // Static batching of trees at runtime needs Read/Write enabled on the mesh.
+    static GameObject ReadableModel(string path)
+    {
+        if (AssetImporter.GetAtPath(path) is ModelImporter mi && !mi.isReadable)
+        {
+            mi.isReadable = true;
+            mi.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+    }
+
+    // Forest scene: light + green fog saved in the scene (so WebGL builds keep the fog shaders)
+    static void EnsureForestScene()
+    {
+        if (!File.Exists(ForestScene))
+        {
+            var active = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene().path;
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.DefaultGameObjects, UnityEditor.SceneManagement.NewSceneMode.Single);
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = new Color(0.62f, 0.74f, 0.66f);
+            RenderSettings.fogStartDistance = 35f;
+            RenderSettings.fogEndDistance = 190f;
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.62f, 0.72f, 0.7f);
+            RenderSettings.ambientEquatorColor = new Color(0.42f, 0.5f, 0.42f);
+            RenderSettings.ambientGroundColor = new Color(0.2f, 0.24f, 0.18f);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, ForestScene);
+            if (!string.IsNullOrEmpty(active)) UnityEditor.SceneManagement.EditorSceneManager.OpenScene(active);
+        }
+        EditorBuildSettings.scenes = new[]
+        {
+            new EditorBuildSettingsScene("Assets/Scenes/Main.unity", true),
+            new EditorBuildSettingsScene(ForestScene, true),
+        };
     }
 
     static void MeasureCar(GameObject model, GemDriftConfig cfg)

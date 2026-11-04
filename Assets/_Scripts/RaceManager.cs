@@ -3,12 +3,11 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Countdown → race (3 laps through checkpoints in order) → when the first truck finishes the other
+/// Countdown → race (laps on a loop, or one run on a point-to-point route, checkpoints in order) → when the first truck finishes the other
 /// has 10 s → results. Score = value of gems in the bed + 5 for finishing first (−3 if not finished).
 /// </summary>
 public class RaceManager : MonoBehaviour
 {
-    public const int Laps = 3;
     public const float CountdownTime = 3f, LastCallTime = 10f;
     public const int FirstPlaceBonus = 5, DnfPenalty = 3;
 
@@ -35,24 +34,40 @@ public class RaceManager : MonoBehaviour
     public Racer[] Racers { get; private set; }
     public int WinnerIndex { get; private set; } = -1;
     public float GoTime { get; private set; } = -99f;
+    public int Laps { get; private set; } = 3;
+    public bool Loop { get; private set; } = true;
+    public string TrackName { get; private set; } = "";
+    public int CheckpointCount => checkpoints.Length;
 
     Transform[] checkpoints;
     int finishCount;
     float raceStart, resultsTime;
 
-    public void Init(CarController[] cars, Transform[] cps)
+    public void Init(CarController[] cars, TrackLayout layout)
     {
         Instance = this;
+        var cps = layout.checkpoints;
         checkpoints = cps;
+        Loop = layout.loop;
+        Laps = layout.laps;
+        TrackName = layout.name;
         Racers = new Racer[cars.Length];
         for (int i = 0; i < cars.Length; i++)
         {
             var r = new Racer { car = cars[i] };
-            // Cars starting behind the finish line must cross it once before lap 1 counts.
-            var cp0 = cps[0];
-            bool behindLine = Vector3.Dot(cp0.forward, cars[i].transform.position - cp0.position) < 0f;
-            r.nextCheckpoint = behindLine ? 0 : 1 % cps.Length;
-            r.lap = behindLine ? -1 : 0;
+            if (Loop)
+            {
+                // Cars starting behind the finish line must cross it once before lap 1 counts.
+                var cp0 = cps[0];
+                bool behindLine = Vector3.Dot(cp0.forward, cars[i].transform.position - cp0.position) < 0f;
+                r.nextCheckpoint = behindLine ? 0 : 1 % cps.Length;
+                r.lap = behindLine ? -1 : 0;
+            }
+            else
+            {
+                r.nextCheckpoint = 0; // point-to-point: the last checkpoint is the finish
+                r.lap = 0;
+            }
             cars[i].CanDrive = false;
             Racers[i] = r;
         }
@@ -77,9 +92,13 @@ public class RaceManager : MonoBehaviour
                 break;
             case Phase.Results:
                 var kb = Keyboard.current;
-                if (Time.time - resultsTime > 1f && kb != null &&
-                    (kb.rKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame))
-                    SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                if (Time.time - resultsTime > 1f && kb != null)
+                {
+                    if (kb.rKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame)
+                        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+                    else if (kb.nKey.wasPressedThisFrame)
+                        SceneManager.LoadScene(GameBootstrap.NextScene(SceneManager.GetActiveScene().name));
+                }
                 break;
         }
     }
@@ -93,11 +112,19 @@ public class RaceManager : MonoBehaviour
         r.passed++;
         var cp = checkpoints[index];
         car.SetRespawn(cp.position + cp.right * (car.PlayerIndex == 0 ? -3f : 3f), cp.rotation);
-        r.nextCheckpoint = (index + 1) % checkpoints.Length;
-        if (index == 0)
+        if (Loop)
         {
-            r.lap++;
-            if (r.lap >= Laps) Finish(r);
+            r.nextCheckpoint = (index + 1) % checkpoints.Length;
+            if (index == 0)
+            {
+                r.lap++;
+                if (r.lap >= Laps) Finish(r);
+            }
+        }
+        else
+        {
+            if (index == checkpoints.Length - 1) Finish(r);
+            else r.nextCheckpoint = index + 1;
         }
     }
 

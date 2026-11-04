@@ -33,3 +33,11 @@ MonoBehaviour:
   gemGold: {fileID: 2100000, guid: 13f362ee77dc249f58cd1236ba23b869, type: 2}
   skid: {fileID: 2100000, guid: e8f37876624f3479ea6a42701af9599d, type: 2}
   spark: {fileID: 2100000, guid: fe960e49925ef436b94236cfe300c0cd, type: 2}
+  dirtRoad: {fileID: 2100000, guid: 2460d07df08f44312b00747d74d8023f, type: 2}
+  forestGround: {fileID: 2100000, guid: 54d7715e917c94a428419c3768e3bc9d, type: 2}
+  woodA: {fileID: 2100000, guid: e6c279ea18e0448c694d9f341d8f310b, type: 2}
+  woodB: {fileID: 2100000, guid: 69105b49125fc4c75a771ce90785fb95, type: 2}
+  treeModels:
+  - {fileID: 919132149155446097, guid: 92524f331ac874a02b94297272626118, type: 3}
+  - {fileID: 919132149155446097, guid: 71f086c9f90634242ac9ab07f58c5703, type: 3}
+  finishArch: {fileID: 919132149155446097, guid: ce3c82d8eb3a043a895b1b8830842735, type: 3}

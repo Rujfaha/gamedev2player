@@ -72,7 +72,7 @@ public class RaceHUD : MonoBehaviour
         resultsDim.SetActive(false);
 
         center = MakeText(root, "", 160, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.55f), Vector2.zero, new Vector2(1200, 200));
-        centerSub = MakeText(root, "", 44, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.42f), Vector2.zero, new Vector2(1400, 80));
+        centerSub = MakeText(root, "", 44, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.38f), Vector2.zero, new Vector2(1400, 140));
         winner = MakeText(root, "", 90, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.85f), Vector2.zero, new Vector2(1600, 140));
     }
 
@@ -86,7 +86,8 @@ public class RaceHUD : MonoBehaviour
         {
             case RaceManager.Phase.Countdown:
                 center.text = Mathf.CeilToInt(race.CountdownLeft).ToString();
-                centerSub.text = "P1: WASD + Left Shift drift      P2: Arrows + Right Shift drift";
+                centerSub.text = race.TrackName + (race.Loop ? "  ·  " + race.Laps + " LAPS" : "  ·  ONE WAY") +
+                                 "\nP1: WASD + Left Shift drift      P2: Arrows + Right Shift drift";
                 break;
             case RaceManager.Phase.Racing:
                 center.text = Time.time - race.GoTime < 1f ? "GO!" : "";
@@ -99,7 +100,7 @@ public class RaceHUD : MonoBehaviour
             case RaceManager.Phase.Results:
                 resultsDim.SetActive(true);
                 center.text = "";
-                centerSub.text = "Press R / Enter / Space to race again";
+                centerSub.text = "R / Enter = race again      N = next track";
                 centerSub.rectTransform.anchorMin = centerSub.rectTransform.anchorMax = new Vector2(0.5f, 0.08f);
                 winner.text = Names[race.WinnerIndex] + " WINS!";
                 winner.color = PlayerColors[race.WinnerIndex];
@@ -113,7 +114,9 @@ public class RaceHUD : MonoBehaviour
         var r = race.Racers[i];
         var car = r.car;
 
-        ui.lap.text = r.finished ? "FINISHED" : "LAP " + race.DisplayLap(i) + "/" + RaceManager.Laps;
+        ui.lap.text = r.finished ? "FINISHED"
+                    : race.Loop ? "LAP " + race.DisplayLap(i) + "/" + race.Laps
+                    : "ROUTE " + Mathf.RoundToInt(100f * r.passed / race.CheckpointCount) + "%";
         int pos = race.PositionOf(i);
         ui.position.text = pos == 1 ? "1st" : "2nd";
         ui.gems.text = "GEMS " + car.Bed.Count + "/" + GemBed.Capacity + "   VALUE " + car.Bed.Value;

@@ -2,13 +2,20 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Builds the whole race when the "Main" scene loads: track (hand-built from the scene if present,
-/// otherwise a generated test circuit), two trucks, gems, split-screen cameras, race rules and HUD.
+/// Builds the whole race when a game scene loads ("Main" = arena circuit, "Forest" = forest switchback):
+/// track (hand-built from the scene if present, otherwise the generated course), two trucks, gems, split-screen cameras, race rules and HUD.
 /// Nothing has to be placed in the scene by hand for the game to be playable.
 /// </summary>
 public class GameBootstrap : MonoBehaviour
 {
-    const string GameScene = "Main";
+    // scene name → built-in course used when the scene has no hand-built track
+    static readonly string[] GameScenes = { "Main", "Forest" };
+
+    public static string NextScene(string current)
+    {
+        int i = System.Array.IndexOf(GameScenes, current);
+        return GameScenes[(i + 1) % GameScenes.Length];
+    }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     static void Hook()
@@ -19,7 +26,7 @@ public class GameBootstrap : MonoBehaviour
 
     static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (scene.name == GameScene && FindAnyObjectByType<GameBootstrap>() == null)
+        if (System.Array.IndexOf(GameScenes, scene.name) >= 0 && FindAnyObjectByType<GameBootstrap>() == null)
             new GameObject("GemDrift").AddComponent<GameBootstrap>();
     }
 
@@ -42,7 +49,8 @@ public class GameBootstrap : MonoBehaviour
             sun.shadows = LightShadows.Soft;
         }
 
-        var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform);
+        var id = SceneManager.GetActiveScene().name == "Forest" ? TrackId.Forest : TrackId.Circuit;
+        var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform, id);
 
         var cars = new CarController[2];
         for (int i = 0; i < 2; i++)
@@ -56,7 +64,7 @@ public class GameBootstrap : MonoBehaviour
         FollowCamera.Create(cars[1], new Rect(0.5f, 0f, 0.5f, 1f));
 
         var race = gameObject.AddComponent<RaceManager>();
-        race.Init(cars, layout.checkpoints);
+        race.Init(cars, layout);
         gameObject.AddComponent<RaceHUD>().Init(race);
     }
 }

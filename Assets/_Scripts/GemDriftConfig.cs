@@ -19,6 +19,11 @@ public class GemDriftConfig : ScriptableObject
     public Material gemRed, gemBlue, gemGold;
     public Material skid, spark;
 
+    [Header("Forest course")]
+    public Material dirtRoad, forestGround, woodA, woodB;
+    public GameObject[] treeModels;   // [0] large, [1] small (Kenney Racing Kit)
+    public GameObject finishArch;     // Kenney overhead arch over the finish line
+
     public Material GemMaterial(GemColor c) => c == GemColor.Gold ? gemGold : c == GemColor.Blue ? gemBlue : gemRed;
 
     public static GemDriftConfig Load() => Resources.Load<GemDriftConfig>("GemDriftConfig");

@@ -33,8 +33,15 @@ so say so in chat first.
 
 ## Play it
 
-Open the project and use the menu **Gem Drift → Play Race** (⌘⇧P). It opens `Main` and starts
-the game. Everything is built at runtime by `GameBootstrap`: track, trucks, gems, split-screen
+Open the project and use the menu **Gem Drift → Play Circuit** (⌘⇧P) or **Gem Drift → Play
+Forest** (⌘⇧O). The same shortcut stops the game.
+
+| Scene | Course | Format |
+|---|---|---|
+| `Main` | **CPE Arena Circuit**: white robot-arena road with a black line-tracing stripe | Loop, 3 laps |
+| `Forest` | **Forest Switchback**: dirt road through a forest, 4 U-turn hairpins, S-bend, fog | One way, start → finish (~750 m) |
+
+On the results screen, **N** loads the next course. Everything is built at runtime by `GameBootstrap`: track, trucks, gems, split-screen
 cameras and HUD. If the scene contains a hand-built track that follows the naming contract below,
 that track is used instead of the generated test circuit.
 
@@ -46,11 +53,14 @@ that track is used instead of the generated test circuit.
 | Steer | A / D | ← / → |
 | Drift (hold while turning) | Left Shift or Space | Right Shift or / |
 | Respawn at last checkpoint | R | Enter |
-| Race again (results screen) | R / Enter / Space | |
+| Race again / next course (results screen) | R / Enter / Space · N | |
 
 ## Rules (in code)
 
-- 3 laps through the checkpoints in order. After the first truck finishes, the other has 10 s.
+- Checkpoints must be passed in order: 3 laps on the circuit, one run on the forest route. After
+  the first truck finishes, the other has 10 s.
+- A hand-built one-way track needs an empty GameObject named `PointToPoint`. Its last checkpoint
+  is then the finish line.
 - Gems: red 1, blue 2, gold 3 (gold sits on the inside of sharp corners). Track gems respawn after 10 s.
 - The bed holds 12 gems, and a full bed makes the truck up to 15% slower.
 - Drift 0.8 s = boost, 1.6 s = super boost. Each 2 s of drifting spills a gem. Hitting the other
