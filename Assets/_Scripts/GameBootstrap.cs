@@ -51,9 +51,17 @@ public class GameBootstrap : MonoBehaviour
         {
             sun.transform.rotation = Quaternion.Euler(50f, -35f, 0f);
             sun.shadows = LightShadows.Soft;
+            sun.color = new Color(1f, 0.96f, 0.88f);
+            sun.intensity = 1.25f;
         }
+        // bright, sunny look: coloured ambient light instead of the grey default
+        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+        RenderSettings.ambientSkyColor = new Color(0.72f, 0.82f, 0.98f);
+        RenderSettings.ambientEquatorColor = new Color(0.58f, 0.64f, 0.58f);
+        RenderSettings.ambientGroundColor = new Color(0.36f, 0.34f, 0.28f);
 
         var id = SceneManager.GetActiveScene().name == "Forest" ? TrackId.Forest : TrackId.Circuit;
+        if (id == TrackId.Forest) RenderSettings.fogColor = new Color(0.72f, 0.88f, 0.8f);
         var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform, id);
 
         int aiCount = Mathf.Max(0, cfg.aiCount);

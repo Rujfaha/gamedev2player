@@ -60,6 +60,7 @@ public static class GemDriftSetup
     public static void Rebuild()
     {
         if (EditorApplication.isPlaying) { Debug.LogWarning("Gem Drift: stop Play mode before Rebuild Config."); return; }
+        madeTextures.Clear();
         EnsureForestScene(); // first: switching scenes unloads in-memory assets
         Directory.CreateDirectory("Assets/_Scripts/Resources");
         Directory.CreateDirectory(GenFolder);
@@ -72,14 +73,17 @@ public static class GemDriftSetup
             AssetDatabase.CreateAsset(cfg, ConfigPath);
         }
 
-        cfg.road = Mat("Road", new Color(0.93f, 0.93f, 0.9f), 0.15f);
-        cfg.roadLine = Mat("RoadLine", new Color(0.05f, 0.05f, 0.06f), 0.1f);
-        cfg.ground = Mat("Ground", new Color(0.36f, 0.55f, 0.36f), 0.05f);
-        cfg.wallA = Mat("WallRed", new Color(0.85f, 0.18f, 0.16f), 0.3f);
-        cfg.wallB = Mat("WallWhite", new Color(0.95f, 0.95f, 0.95f), 0.3f);
-        cfg.gemRed = Mat("GemRed", new Color(1f, 0.15f, 0.2f), 0.9f, 0.2f, new Color(0.6f, 0.05f, 0.08f));
-        cfg.gemBlue = Mat("GemBlue", new Color(0.15f, 0.45f, 1f), 0.9f, 0.2f, new Color(0.05f, 0.2f, 0.6f));
-        cfg.gemGold = Mat("GemGold", new Color(1f, 0.78f, 0.15f), 0.9f, 0.5f, new Color(0.6f, 0.42f, 0.02f));
+        // Bright, saturated palette; procedural textures + normal maps give surfaces some depth.
+        cfg.road = TexMat("Road", Color.white, 0.2f, RoadTex, 1.2f);
+        cfg.roadLine = Mat("RoadLine", new Color(0.05f, 0.05f, 0.08f), 0.1f);
+        cfg.ground = TexMat("Ground", Color.white, 0.05f, GrassTex, 1f);
+        cfg.wallA = TexMat("WallRed", new Color(1f, 0.22f, 0.2f), 0.4f, PanelTex, 1.5f, "Panel");
+        cfg.wallB = TexMat("WallWhite", new Color(1f, 0.85f, 0.15f), 0.4f, PanelTex, 1.5f, "Panel");
+        cfg.gemRed = Mat("GemRed", new Color(1f, 0.1f, 0.25f), 0.95f, 0.2f, new Color(0.9f, 0.05f, 0.15f));
+        cfg.gemBlue = Mat("GemBlue", new Color(0.1f, 0.6f, 1f), 0.95f, 0.2f, new Color(0.05f, 0.35f, 0.95f));
+        cfg.gemGold = Mat("GemGold", new Color(1f, 0.85f, 0.1f), 0.95f, 0.5f, new Color(0.9f, 0.62f, 0.02f));
+        cfg.playerTints = new[] { new Color(1f, 0.35f, 0.3f), new Color(0.3f, 0.65f, 1f) };
+        cfg.aiTints = new[] { new Color(1f, 0.85f, 0.2f), new Color(0.35f, 0.95f, 0.4f), new Color(0.75f, 0.45f, 1f), new Color(1f, 0.6f, 0.15f) };
         cfg.checker = CheckerMat();
         cfg.skid = SpriteMat("Skid", new Color(0.05f, 0.05f, 0.05f, 0.55f));
         cfg.spark = SpriteMat("Spark", Color.white);
@@ -88,10 +92,10 @@ public static class GemDriftSetup
         cfg.nitroGlow = Mat("NitroGlow", new Color(0.85f, 0.4f, 1f), 0.9f, 0f, new Color(0.9f, 0.35f, 1.6f));
 
         // Forest course
-        cfg.dirtRoad = Mat("DirtRoad", new Color(0.72f, 0.6f, 0.43f), 0.05f);
-        cfg.forestGround = Mat("ForestGround", new Color(0.22f, 0.38f, 0.2f), 0.02f);
-        cfg.woodA = Mat("WoodA", new Color(0.45f, 0.29f, 0.16f), 0.1f);
-        cfg.woodB = Mat("WoodB", new Color(0.62f, 0.45f, 0.27f), 0.1f);
+        cfg.dirtRoad = TexMat("DirtRoad", Color.white, 0.05f, DirtTex, 1.3f);
+        cfg.forestGround = TexMat("ForestGround", Color.white, 0.03f, ForestFloorTex, 1f);
+        cfg.woodA = TexMat("WoodA", new Color(0.78f, 0.5f, 0.28f), 0.15f, WoodTex, 1.4f, "Wood");
+        cfg.woodB = TexMat("WoodB", new Color(0.95f, 0.72f, 0.42f), 0.15f, WoodTex, 1.4f, "Wood");
         cfg.treeModels = new[] { ReadableModel(KitPath + "treeLarge.fbx"), ReadableModel(KitPath + "treeSmall.fbx") };
         cfg.finishArch = AssetDatabase.LoadAssetAtPath<GameObject>(KitPath + "overheadRoundColored.fbx");
 
@@ -126,7 +130,7 @@ public static class GemDriftSetup
                 UnityEditor.SceneManagement.NewSceneSetup.DefaultGameObjects, UnityEditor.SceneManagement.NewSceneMode.Single);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.62f, 0.74f, 0.66f);
+            RenderSettings.fogColor = new Color(0.72f, 0.88f, 0.8f);
             RenderSettings.fogStartDistance = 35f;
             RenderSettings.fogEndDistance = 190f;
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
@@ -294,6 +298,162 @@ public static class GemDriftSetup
         if (m.HasProperty("_TintColor")) m.SetColor("_TintColor", new Color(0.5f, 0.5f, 0.5f, 0.5f));
         EditorUtility.SetDirty(m);
         return m;
+    }
+
+    // ---------- Procedural textures (tileable value noise; albedo + normal map from a height field) ----------
+
+    const int TexSize = 256;
+
+    delegate (Color albedo, float height) TexFn(float u, float v, float n, float grain);
+
+    // A white tint keeps the texture's own colours; walls and wood use greyscale textures tinted by the material.
+    static readonly Dictionary<string, (Texture2D, Texture2D)> madeTextures = new Dictionary<string, (Texture2D, Texture2D)>();
+
+    static Material TexMat(string name, Color tint, float smoothness, TexFn fn, float bump, string texName = null)
+    {
+        var m = Mat(name, tint, smoothness);
+        texName = texName ?? name;
+        if (!madeTextures.TryGetValue(texName, out var pair)) madeTextures[texName] = pair = MakeTextures(texName, fn);
+        var (albedo, normal) = pair;
+        m.mainTexture = albedo;
+        m.SetTexture("_BumpMap", normal);
+        m.SetFloat("_BumpScale", bump);
+        m.EnableKeyword("_NORMALMAP");
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    static (Texture2D, Texture2D) MakeTextures(string name, TexFn fn)
+    {
+        int S = TexSize;
+        var cols = new Color[S * S];
+        var h = new float[S * S];
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float u = (x + 0.5f) / S, v = (y + 0.5f) / S;
+                var (c, hh) = fn(u, v, Fbm(u, v, 8, 17), Hash(x, y, 91) / (float)int.MaxValue);
+                cols[y * S + x] = c;
+                h[y * S + x] = hh;
+            }
+        var albedo = new Texture2D(S, S, TextureFormat.RGB24, true) { wrapMode = TextureWrapMode.Repeat, anisoLevel = 4 };
+        albedo.SetPixels(cols);
+        albedo.Apply(true);
+
+        // normal = slope of the height field, packed as (x, y, z, x) so it unpacks right with or without DXT5nm
+        var normal = new Texture2D(S, S, TextureFormat.RGBA32, true, true) { wrapMode = TextureWrapMode.Repeat, anisoLevel = 4 };
+        var ns = new Color[S * S];
+        for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float dx = h[y * S + (x + 1) % S] - h[y * S + (x - 1 + S) % S];
+                float dy = h[((y + 1) % S) * S + x] - h[((y - 1 + S) % S) * S + x];
+                var n = new Vector3(-dx * 4f, -dy * 4f, 1f).normalized * 0.5f + Vector3.one * 0.5f;
+                ns[y * S + x] = new Color(n.x, n.y, n.z, n.x);
+            }
+        normal.SetPixels(ns);
+        normal.Apply(true);
+        return (SaveTex(albedo, name + "_Albedo"), SaveTex(normal, name + "_Normal"));
+    }
+
+    static Texture2D SaveTex(Texture2D tex, string name)
+    {
+        string path = GenFolder + "/" + name + ".asset";
+        AssetDatabase.DeleteAsset(path); // regenerate on every rebuild so tweaks show up
+        AssetDatabase.CreateAsset(tex, path);
+        return tex;
+    }
+
+    static int Hash(int x, int y, int seed)
+    {
+        unchecked
+        {
+            int h = x * 374761393 + y * 668265263 + seed * 144269504;
+            h = (h ^ (h >> 13)) * 1274126177;
+            return (h ^ (h >> 16)) & int.MaxValue;
+        }
+    }
+
+    // value noise on a grid that wraps, so the texture tiles seamlessly
+    static float ValueNoise(float u, float v, int cells, int seed)
+    {
+        float x = u * cells, y = v * cells;
+        int ix = Mathf.FloorToInt(x), iy = Mathf.FloorToInt(y);
+        float fx = x - ix, fy = y - iy;
+        fx = fx * fx * (3f - 2f * fx);
+        fy = fy * fy * (3f - 2f * fy);
+        float H(int a, int b) => Hash(((a % cells) + cells) % cells, ((b % cells) + cells) % cells, seed) / (float)int.MaxValue;
+        return Mathf.Lerp(Mathf.Lerp(H(ix, iy), H(ix + 1, iy), fx), Mathf.Lerp(H(ix, iy + 1), H(ix + 1, iy + 1), fx), fy);
+    }
+
+    static float Fbm(float u, float v, int cells, int seed)
+    {
+        float sum = 0f, amp = 0.5f, norm = 0f;
+        for (int o = 0; o < 4; o++, cells *= 2, amp *= 0.5f) { sum += ValueNoise(u, v, cells, seed + o) * amp; norm += amp; }
+        return sum / norm;
+    }
+
+    // u runs across the road, v along it (one tile = one road width); red/white kerbs are baked into both edges
+    static (Color, float) RoadTex(float u, float v, float n, float g)
+    {
+        float edge = Mathf.Min(u, 1f - u);
+        if (edge < 0.055f)
+        {
+            bool red = Mathf.FloorToInt(v * 8f) % 2 == 0;
+            float ridge = Mathf.Sin(Mathf.Clamp01(edge / 0.055f) * Mathf.PI);
+            var c = red ? new Color(0.95f, 0.15f, 0.12f) : new Color(0.98f, 0.98f, 0.98f);
+            return (c * (0.9f + 0.1f * n), 0.4f + ridge * 0.6f);
+        }
+        float shade = 0.84f + n * 0.12f + (g - 0.5f) * 0.06f;
+        return (new Color(shade, shade, shade * 1.02f), n * 0.25f + g * 0.08f);
+    }
+
+    static (Color, float) GrassTex(float u, float v, float n, float g)
+    {
+        var c = Color.Lerp(new Color(0.3f, 0.66f, 0.2f), new Color(0.58f, 0.9f, 0.32f), n);
+        if (g > 0.985f) c = new Color(1f, 0.92f, 0.35f); // tiny flowers
+        return (c * (0.9f + g * 0.15f), n * 0.6f + g * 0.4f);
+    }
+
+    static (Color, float) DirtTex(float u, float v, float n, float g)
+    {
+        var c = Color.Lerp(new Color(0.66f, 0.47f, 0.28f), new Color(0.88f, 0.72f, 0.48f), n);
+        float rut = Mathf.Exp(-Mathf.Pow((Mathf.Abs(u - 0.5f) - 0.2f) / 0.05f, 2f)); // two tyre ruts
+        c *= 1f - rut * 0.18f;
+        float h = n * 0.6f - rut * 0.4f;
+        if (g > 0.97f) { c = Color.Lerp(c, new Color(0.9f, 0.88f, 0.82f), 0.7f); h += 0.6f; } // pebbles
+        float edge = Mathf.Min(u, 1f - u);
+        if (edge < 0.04f) c = Color.Lerp(new Color(0.35f, 0.6f, 0.22f), c, edge / 0.04f); // grass creeping in
+        return (c, h);
+    }
+
+    static (Color, float) ForestFloorTex(float u, float v, float n, float g)
+    {
+        var c = Color.Lerp(new Color(0.22f, 0.5f, 0.2f), new Color(0.42f, 0.72f, 0.28f), n);
+        float leaves = ValueNoise(u, v, 32, 5);
+        if (leaves > 0.7f) c = Color.Lerp(c, new Color(0.85f, 0.55f, 0.2f), (leaves - 0.7f) * 2.5f);
+        return (c * (0.9f + g * 0.15f), n * 0.7f + g * 0.3f);
+    }
+
+    // bevelled greyscale panel, tinted by the material colour (one panel per wall piece)
+    static (Color, float) PanelTex(float u, float v, float n, float g)
+    {
+        float edge = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+        float bevel = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(edge / 0.08f));
+        float stripe = Mathf.FloorToInt(v * 2f + 0.5f) % 2 == 0 ? 1f : 0.92f;
+        float shade = (0.72f + 0.28f * bevel) * stripe * (0.94f + 0.06f * n);
+        return (new Color(shade, shade, shade), bevel + n * 0.05f);
+    }
+
+    // three horizontal planks with stretched grain
+    static (Color, float) WoodTex(float u, float v, float n, float g)
+    {
+        float pv = v * 3f;
+        float inPlank = pv - Mathf.Floor(pv);
+        float gap = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(Mathf.Min(inPlank, 1f - inPlank) / 0.08f));
+        float grain = ValueNoise(u * 0.25f, v, 24, Mathf.FloorToInt(pv) + 3);
+        float shade = (0.7f + 0.3f * grain) * (0.55f + 0.45f * gap);
+        return (new Color(shade, shade, shade), gap * 0.8f + grain * 0.2f);
     }
 
     static Material CheckerMat()
