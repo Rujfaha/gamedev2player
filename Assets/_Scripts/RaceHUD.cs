@@ -81,7 +81,11 @@ public class RaceHUD : MonoBehaviour
             ui.nitroFill = Panel(nbar, "Fill", new Vector2(0, 0), new Vector2(0, 1), new Color(0.75f, 0.35f, 1f));
             ui.nitroFill.pivot = new Vector2(0, 0.5f);
             ui.nitroFillImage = ui.nitroFill.GetComponent<Image>();
+            // tick at the middle: from here BLUE nitro can be used
+            var tick = Panel(nbar, "HalfMark", new Vector2(0.5f, 0), new Vector2(0.5f, 1), Color.white);
+            tick.sizeDelta = new Vector2(4, 8);
             ui.nitroLabel = MakeText(nbar, "NITRO", 24, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(600, 30));
+            bar.gameObject.SetActive(false); // drift bar no longer needed: the nitro tank shows the progress
             players[i] = ui;
         }
 
@@ -139,23 +143,26 @@ public class RaceHUD : MonoBehaviour
         ui.gems.text = "GEMS " + car.Bed.Count + "/" + GemBed.Capacity + "   VALUE " + car.Bed.Value;
         ui.speed.text = Mathf.RoundToInt(Mathf.Abs(car.Speed) * 3.6f) + " km/h";
 
-        float fill = Mathf.Clamp01(car.DriftTime / CarController.SuperBoostTime);
-        ui.driftFill.anchorMax = new Vector2(fill, 1);
-        ui.driftFill.sizeDelta = Vector2.zero;
-        ui.driftFillImage.color = car.DriftLevel == 2 ? new Color(1f, 0.55f, 0.1f)
-                                : car.DriftLevel == 1 ? new Color(0.3f, 0.8f, 1f) : Color.white;
 
         ui.nitroFill.anchorMax = new Vector2(car.NitroActive ? 1f : car.Nitro, 1);
         ui.nitroFill.sizeDelta = Vector2.zero;
         bool flash = car.NitroReady && Mathf.Repeat(Time.time * 3f, 1f) < 0.5f;
-        ui.nitroFillImage.color = car.NitroActive ? new Color(1f, 0.85f, 1f) : flash ? new Color(1f, 0.6f, 1f) : new Color(0.75f, 0.35f, 1f);
-        ui.nitroLabel.text = car.NitroActive ? "NITRO!!" : car.NitroReady ? "NITRO READY · double-tap " + (i == 0 ? "L-SHIFT" : "R-SHIFT") : "NITRO";
+        string key = i == 0 ? "L-SHIFT" : "R-SHIFT";
+        ui.nitroFillImage.color = car.ActiveNitroLevel == 2 ? new Color(1f, 0.55f, 0.15f)
+                                : car.ActiveNitroLevel == 1 ? new Color(0.4f, 0.85f, 1f)
+                                : car.NitroReady ? (flash ? new Color(1f, 0.75f, 0.3f) : new Color(1f, 0.35f, 0.15f))
+                                : car.BlueReady ? new Color(0.25f, 0.65f, 1f)
+                                : new Color(0.75f, 0.35f, 1f);
+        ui.nitroLabel.text = car.ActiveNitroLevel == 2 ? "RED NITRO!!"
+                           : car.ActiveNitroLevel == 1 ? "BLUE NITRO!"
+                           : car.NitroReady ? "RED NITRO READY · double-tap " + key
+                           : car.BlueReady ? "BLUE NITRO READY · double-tap " + key
+                           : "NITRO";
 
         // short pop-up messages
         string msg = "";
         if (Time.time - car.Bed.LastSpillTime < 1.2f) msg = "-" + car.Bed.LastSpillCount + " GEM" + (car.Bed.LastSpillCount > 1 ? "S" : "");
-        else if (Time.time - car.LastNitroTime < 1.2f) msg = "NITRO!!";
-        else if (Time.time - car.LastBoostTime < 1f) msg = car.LastBoostLevel == 2 ? "SUPER BOOST!" : "BOOST!";
+        else if (Time.time - car.LastNitroTime < 1.2f) msg = car.LastNitroLevel == 2 ? "RED NITRO!!" : "BLUE NITRO!";
         else if (car.Bed.Full && !r.finished) msg = "BED FULL";
         ui.popup.text = race.State == RaceManager.Phase.Results ? "" : msg;
         ui.popup.color = msg.StartsWith("-") ? new Color(1f, 0.4f, 0.4f) : Color.white;

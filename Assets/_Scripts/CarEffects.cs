@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Exhaust fire and the little nitro tank on the truck bed.
-///   NITRO (full tank fired) → big red/orange fire from both exhausts.
-///   Drift boost (release after 0.8 s / 1.6 s) → blue fire.
+///   RED nitro (full tank) → big red/orange fire from both exhausts.
+///   BLUE nitro (half tank) → blue fire.
 ///   The tank's glowing core fills with the nitro meter and flashes when it's ready.
 /// </summary>
 public class CarEffects : MonoBehaviour
@@ -63,7 +63,7 @@ public class CarEffects : MonoBehaviour
 
     void Update()
     {
-        var want = car.NitroActive ? Fire.Red : car.Boosting ? Fire.Blue : Fire.None;
+        var want = car.ActiveNitroLevel == 2 ? Fire.Red : car.ActiveNitroLevel == 1 ? Fire.Blue : Fire.None;
         if (want != current) SetFire(want);
 
         if (tankCore != null)
@@ -73,9 +73,11 @@ public class CarEffects : MonoBehaviour
             tankCore.localScale = new Vector3(0.34f, coreLength * 0.5f * fill, 0.34f); // glowing nitro, drawn over the shell
             tankCore.localPosition = new Vector3(0f, -coreLength * 0.5f * (1f - fill), 0f);
             bool flash = car.NitroReady && Mathf.Repeat(Time.time * 3f, 1f) < 0.5f;
-            Color glow = car.NitroActive ? new Color(3f, 0.9f, 0.3f)
-                       : flash ? new Color(2.2f, 1.6f, 3f)
-                       : new Color(0.9f, 0.35f, 1.6f) * (0.4f + car.Nitro);
+            Color glow = car.ActiveNitroLevel == 2 ? new Color(3f, 0.9f, 0.3f)
+                       : car.ActiveNitroLevel == 1 ? new Color(0.4f, 1.4f, 3f)
+                       : flash ? new Color(3f, 1.2f, 0.4f)                       // full: flashing red-orange
+                       : car.BlueReady ? new Color(0.4f, 1.2f, 2.6f)             // half: blue
+                       : new Color(0.9f, 0.35f, 1.6f) * (0.4f + car.Nitro);       // filling: purple
             block.SetColor("_EmissionColor", glow);
             tankCoreRenderer.SetPropertyBlock(block);
         }

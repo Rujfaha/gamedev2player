@@ -15,7 +15,7 @@ public class GemDriftConfig : ScriptableObject
     public Color[] playerTints = { new Color(1f, 0.55f, 0.5f), new Color(0.55f, 0.75f, 1f) };
 
     [Header("AI racers")]
-    public int aiCount = 2;         // computer-driven trucks racing alongside the two players
+    public int aiCount = 3;         // computer-driven trucks racing alongside the two players
     public Color[] aiTints =
     {
         new Color(1f, 0.85f, 0.4f), new Color(0.6f, 0.95f, 0.6f), new Color(0.8f, 0.6f, 1f), new Color(0.75f, 0.75f, 0.75f),

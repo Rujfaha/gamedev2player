@@ -78,11 +78,13 @@ public class GameBootstrap : MonoBehaviour
         gameObject.AddComponent<RaceHUD>().Init(race, layout);
     }
 
-    /// <summary>An optional Start_AI1, Start_AI2.. marker in the scene, else a grid slot behind Start_P1/P2 (6 m per row).</summary>
+    /// <summary>An optional Start_AI1, Start_AI2.. marker in the scene, else the course's grid slot,
+    /// else a slot behind Start_P1/P2 (6 m per row).</summary>
     static Pose AIStart(TrackLayout layout, int k)
     {
         var marker = GameObject.Find("Start_AI" + (k + 1));
         if (marker != null) return new Pose(marker.transform.position, marker.transform.rotation);
+        if (k < layout.aiStarts.Count) return layout.aiStarts[k];
         var s = layout.starts[k % 2];
         return new Pose(s.position - s.rotation * Vector3.forward * (6f * (1 + k / 2)), s.rotation);
     }

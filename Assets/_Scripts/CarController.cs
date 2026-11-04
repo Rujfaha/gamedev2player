@@ -1,8 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// Arcade truck physics: throttle/brake/steer, hold drift to slide, release for a boost.
-/// Drifting also fills the NITRO tank; when it's full, double-tap the drift key to fire it.
+/// Arcade truck physics: throttle/brake/steer, hold drift to slide.
+/// Drifting fills the NITRO tank. Double-tap the drift key to fire it:
+///   tank half full or more → BLUE nitro (uses half the tank), tank full → RED nitro (uses all of it).
 /// Same code for both players; only the input bindings (PlayerControls) differ.
 /// An AI truck uses the same physics: CarAI just fills AIMove / AIDrift instead of the keyboard.
 /// </summary>
@@ -24,15 +25,16 @@ public class CarController : MonoBehaviour
     public float grip = 10f;
     public float driftGrip = 1.8f;
 
-    [Header("Drift / boost")]
+    [Header("Drift")]
     public float minDriftSpeed = 9f;
-    public float boostSpeedMultiplier = 1.35f;
-    public const float MiniBoostTime = 0.8f, SuperBoostTime = 1.6f, SpillDriftTime = 2f;
+    public const float SpillDriftTime = 2f;
 
     [Header("Nitro (charged by drifting, fired by double-tapping drift)")]
     public float nitroChargeSeconds = 3f;     // seconds of drifting to fill the tank
-    public float nitroDuration = 2.5f;
+    public float nitroDuration = 2.5f;        // RED: full tank
     public float nitroSpeedMultiplier = 1.45f;
+    public float blueDuration = 1.3f;         // BLUE: half tank
+    public float boostSpeedMultiplier = 1.25f;
     public const float DoubleTapWindow = 0.3f;
 
     [Header("Crashes (ramming a car: see GemDriftConfig)")]
@@ -50,14 +52,15 @@ public class CarController : MonoBehaviour
     public float DriftTime => drifting ? driftTime : 0f;
     /// <summary>Velocity going into the latest physics step, i.e. before any collision changed it.</summary>
     public Vector3 PreImpactVelocity { get; private set; }
-    public int DriftLevel => !drifting ? 0 : driftTime >= SuperBoostTime ? 2 : driftTime >= MiniBoostTime ? 1 : 0;
-    public bool Boosting => boostTimer > 0f || nitroTimer > 0f;
+    public bool Boosting => nitroTimer > 0f;
     public float Nitro { get; private set; }          // 0..1
-    public bool NitroReady => Nitro >= 1f;
+    public bool BlueReady => Nitro >= 0.5f;           // half tank
+    public bool NitroReady => Nitro >= 1f;            // full tank
     public bool NitroActive => nitroTimer > 0f;
+    /// <summary>0 = none, 1 = blue (half tank), 2 = red (full tank).</summary>
+    public int ActiveNitroLevel => nitroTimer > 0f ? nitroLevel : 0;
     public float LastNitroTime { get; private set; } = -99f;
-    public float LastBoostTime { get; private set; } = -99f;
-    public int LastBoostLevel { get; private set; }
+    public int LastNitroLevel { get; private set; }
 
     PlayerControls controls;   // null for AI trucks
     GemDriftConfig cfg;
@@ -66,8 +69,9 @@ public class CarController : MonoBehaviour
     TrailRenderer[] skids;
     ParticleSystem sparks;
     bool drifting;
-    float driftDir, driftTime, nextSpillAt, boostTimer, crashCooldownUntil, steerVisual;
+    float driftDir, driftTime, nextSpillAt, crashCooldownUntil, steerVisual;
     float nitroTimer, lastDriftTap = -99f;
+    int nitroLevel;
     Vector3 respawnPos;
     Quaternion respawnRot;
 
@@ -179,7 +183,6 @@ public class CarController : MonoBehaviour
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
         drifting = false;
-        boostTimer = 0f;
         nitroTimer = 0f;
         foreach (var s in skids) s.Clear();
     }
@@ -188,10 +191,10 @@ public class CarController : MonoBehaviour
     {
         if (CanDrive && !IsAI && controls.ResetPressed) Respawn();
 
-        // double-tap drift with a full tank = NITRO (AI trucks call TryFireNitro instead)
+        // double-tap drift = NITRO: red with a full tank, blue with half (AI trucks call TryFireNitro instead)
         if (CanDrive && !IsAI && controls.DriftPressed)
         {
-            if (Time.time - lastDriftTap <= DoubleTapWindow && NitroReady) FireNitro();
+            if (Time.time - lastDriftTap <= DoubleTapWindow) TryFireNitro();
             lastDriftTap = Time.time;
         }
         if (transform.position.y < -5f) Respawn();
@@ -205,11 +208,9 @@ public class CarController : MonoBehaviour
 
         var emission = sparks.emission;
         var main = sparks.main;
-        int level = DriftLevel;
-        emission.rateOverTime = NitroActive ? 140f : drifting ? (level == 0 ? 15f : 60f) : (Boosting ? 30f : 0f);
-        main.startColor = NitroActive ? new Color(0.75f, 0.35f, 1f)
-                        : level == 2 || (Boosting && LastBoostLevel == 2) ? new Color(1f, 0.55f, 0.1f)
-                        : level == 1 || Boosting ? new Color(0.3f, 0.8f, 1f)
+        emission.rateOverTime = NitroActive ? 100f : drifting ? 35f : 0f;
+        main.startColor = ActiveNitroLevel == 2 ? new Color(1f, 0.5f, 0.15f)
+                        : ActiveNitroLevel == 1 ? new Color(0.3f, 0.8f, 1f)
                         : new Color(1f, 1f, 0.85f);
     }
 
@@ -225,9 +226,8 @@ public class CarController : MonoBehaviour
         float fwdSpeed = Vector3.Dot(v, fwd);
         float latSpeed = Vector3.Dot(v, right);
 
-        boostTimer = Mathf.Max(0f, boostTimer - dt);
         nitroTimer = Mathf.Max(0f, nitroTimer - dt);
-        float speedMult = NitroActive ? nitroSpeedMultiplier : boostTimer > 0f ? boostSpeedMultiplier : 1f;
+        float speedMult = ActiveNitroLevel == 2 ? nitroSpeedMultiplier : ActiveNitroLevel == 1 ? boostSpeedMultiplier : 1f;
         float top = maxSpeed * Bed.WeightFactor * speedMult;
 
         // --- drift state ---
@@ -240,7 +240,7 @@ public class CarController : MonoBehaviour
         }
         else if (drifting && (!driftHeld || fwdSpeed < minDriftSpeed * 0.6f))
         {
-            EndDrift(!driftHeld);
+            drifting = false;
         }
         if (drifting)
         {
@@ -254,7 +254,7 @@ public class CarController : MonoBehaviour
         }
 
         // --- forward / back ---
-        float accel = acceleration * (NitroActive ? 2f : Boosting ? 1.6f : 1f);
+        float accel = acceleration * (ActiveNitroLevel == 2 ? 2f : ActiveNitroLevel == 1 ? 1.6f : 1f);
         if (throttle > 0.1f)
         {
             if (fwdSpeed < top) fwdSpeed = Mathf.Min(top, fwdSpeed + accel * throttle * dt);
@@ -294,36 +294,18 @@ public class CarController : MonoBehaviour
         PreImpactVelocity = rb.linearVelocity; // collisions resolve after FixedUpdate, so this is the pre-hit velocity
     }
 
-    void EndDrift(bool released)
-    {
-        drifting = false;
-        if (!released) return;
-        if (driftTime >= SuperBoostTime) Boost(2, 1.4f);
-        else if (driftTime >= MiniBoostTime) Boost(1, 0.7f);
-    }
-
-    void Boost(int level, float duration)
-    {
-        boostTimer = Mathf.Max(boostTimer, duration);
-        rb.linearVelocity += transform.forward * (level == 2 ? 5f : 3f);
-        LastBoostTime = Time.time;
-        LastBoostLevel = level;
-    }
-
-    /// <summary>For CarAI: fires the nitro if the tank is full.</summary>
+    /// <summary>Fires RED nitro with a full tank, else BLUE with at least half. Players double-tap; CarAI calls this.</summary>
     public bool TryFireNitro()
     {
-        if (!CanDrive || !NitroReady || NitroActive) return false;
-        FireNitro();
-        return true;
-    }
-
-    void FireNitro()
-    {
-        Nitro = 0f;
-        nitroTimer = nitroDuration;
-        rb.linearVelocity += transform.forward * 6f;
+        if (!CanDrive || NitroActive || !BlueReady) return false;
+        bool red = NitroReady;
+        nitroLevel = red ? 2 : 1;
+        Nitro = red ? 0f : Nitro - 0.5f;
+        nitroTimer = red ? nitroDuration : blueDuration;
+        rb.linearVelocity += transform.forward * (red ? 6f : 3.5f);
         LastNitroTime = Time.time;
+        LastNitroLevel = nitroLevel;
+        return true;
     }
 
     void OnCollisionEnter(Collision c)

@@ -15,6 +15,7 @@ public class TrackLayout
     public Pose[] starts = new Pose[2];
     public List<(Vector3 pos, GemColor color)> gems = new List<(Vector3, GemColor)>();
     public List<Vector3> path = new List<Vector3>(); // centre line, for the minimap
+    public List<Pose> aiStarts = new List<Pose>();   // grid slots for AI trucks (same row as the players)
     public float roadWidth = 14f;
 }
 
@@ -28,6 +29,8 @@ public class TrackLayout
 public static class TrackBuilder
 {
     const float SampleSpacing = 2f, CheckpointSpacing = 30f, GemSpacing = 24f, RunOff = 30f;
+    // The start area is widened so 5 trucks fit side by side, then tapers back to the normal width.
+    const float GridWidth = 21f, GridLaneSpacing = 3.6f, WideZone = 30f, TaperZone = 35f;
 
     // ---------- Course shapes ----------
 
@@ -130,6 +133,17 @@ public static class TrackBuilder
             rights[i] = Vector3.Cross(Vector3.up, tangents[i]);
         }
 
+        // Road width per sample: wide around the start grid, normal elsewhere
+        float total = (n - 1) * SampleSpacing;
+        var widths = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            float d = i * SampleSpacing;
+            if (loop) d = Mathf.Min(d, n * SampleSpacing - d); // the grid sits on both sides of sample 0
+            float t = Mathf.Clamp01((d - WideZone) / TaperZone);
+            widths[i] = Mathf.Lerp(Mathf.Max(GridWidth, style.width), style.width, t * t * (3f - 2f * t));
+        }
+
         // Ground: one big flat collider at y = 0 is the only driving surface
         var bounds = new Bounds(pts[0], Vector3.zero);
         foreach (var p in pts) bounds.Encapsulate(p);
@@ -141,13 +155,14 @@ public static class TrackBuilder
         ground.transform.localScale = new Vector3(bounds.size.x + 1000f, 1f, bounds.size.z + 1000f);
         ground.GetComponent<Renderer>().sharedMaterial = style.ground;
 
-        Strip(root, "Road", pts, rights, style.width, 0.02f, style.road, loop);
-        Strip(root, "LineTracingStripe", pts, rights, 0.6f, 0.035f, style.line, loop);
-        BuildWalls(root, pts, rights, tangents, style, loop);
+        Strip(root, "Road", pts, rights, widths, 0.02f, style.road, loop);
+        var stripe = new float[n];
+        for (int i = 0; i < n; i++) stripe[i] = 0.6f;
+        Strip(root, "LineTracingStripe", pts, rights, stripe, 0.035f, style.line, loop);
+        BuildWalls(root, pts, rights, tangents, widths, style, loop);
 
-        float total = (n - 1) * SampleSpacing;
         int finishIdx = loop ? 0 : Mathf.Clamp(Mathf.RoundToInt((total - RunOff) / SampleSpacing), 0, n - 1);
-        FinishLine(root, cfg, pts[finishIdx], tangents[finishIdx], style.width);
+        FinishLine(root, cfg, pts[finishIdx], tangents[finishIdx], widths[finishIdx]);
 
         var layout = new TrackLayout
         {
@@ -173,18 +188,21 @@ public static class TrackBuilder
             go.transform.SetPositionAndRotation(pts[i], Quaternion.LookRotation(tangents[i]));
             var box = go.AddComponent<BoxCollider>();
             box.isTrigger = true;
-            box.size = new Vector3(style.width + 4f, 6f, 3f);
+            box.size = new Vector3(widths[i] + 4f, 6f, 3f);
             box.center = new Vector3(0, 3f, 0);
             go.AddComponent<Checkpoint>().index = k;
             cps.Add(go.transform);
         }
         layout.checkpoints = cps.ToArray();
 
-        // Start grid: 10 m past the line on the circuit, 8 m from the start wall on point-to-point
+        // Start grid: one row of 5 lanes, 10 m past the line on the circuit / 8 m from the start wall on
+        // point-to-point. Lanes left→right: AI, P1, AI, P2, AI (players never stuck behind an AI truck).
         int s = Mathf.RoundToInt((loop ? 10f : 8f) / SampleSpacing);
-        float lane = style.width * 0.22f;
-        for (int p = 0; p < 2; p++)
-            layout.starts[p] = new Pose(pts[s] + rights[s] * (p == 0 ? -lane : lane), Quaternion.LookRotation(tangents[s]));
+        var gridRot = Quaternion.LookRotation(tangents[s]);
+        Vector3 Lane(int k) => pts[s] + rights[s] * (k * GridLaneSpacing);
+        layout.starts[0] = new Pose(Lane(-1), gridRot);
+        layout.starts[1] = new Pose(Lane(1), gridRot);
+        foreach (int k in new[] { 0, -2, 2 }) layout.aiStarts.Add(new Pose(Lane(k), gridRot));
 
         // Gems: pairs on straights (one per lane), a single gold on the inside of sharp corners
         int gemStride = Mathf.RoundToInt(GemSpacing / SampleSpacing);
@@ -209,7 +227,7 @@ public static class TrackBuilder
             }
         }
 
-        if (style.forest) Forest(root, cfg, pts, style.width, bounds);
+        if (style.forest) Forest(root, cfg, pts, Mathf.Max(style.width, GridWidth), bounds);
         return layout;
     }
 
@@ -275,7 +293,7 @@ public static class TrackBuilder
 
     // ---------- Meshes ----------
 
-    static void Strip(Transform parent, string name, List<Vector3> pts, Vector3[] rights, float width, float y, Material mat, bool loop)
+    static void Strip(Transform parent, string name, List<Vector3> pts, Vector3[] rights, float[] widths, float y, Material mat, bool loop)
     {
         int n = pts.Count;
         int rows = loop ? n + 1 : n;
@@ -288,6 +306,7 @@ public static class TrackBuilder
             int k = i % n;
             if (i > 0) dist += Vector3.Distance(pts[i - 1], pts[k]);
             var up = Vector3.up * y;
+            float width = widths[k];
             verts[i * 2] = pts[k] - rights[k] * width * 0.5f + up;
             verts[i * 2 + 1] = pts[k] + rights[k] * width * 0.5f + up;
             uvs[i * 2] = new Vector2(0, dist / width);
@@ -309,7 +328,7 @@ public static class TrackBuilder
     }
 
     // Box colliders along both edges (+ end caps on a one-way route); visuals merged into two meshes
-    static void BuildWalls(Transform parent, List<Vector3> pts, Vector3[] rights, Vector3[] tangents, Style style, bool loop)
+    static void BuildWalls(Transform parent, List<Vector3> pts, Vector3[] rights, Vector3[] tangents, float[] widths, Style style, bool loop)
     {
         var temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
         var cube = temp.GetComponent<MeshFilter>().sharedMesh;
@@ -320,8 +339,8 @@ public static class TrackBuilder
         var partsA = new List<CombineInstance>();
         var partsB = new List<CombineInstance>();
         float height = style.wallHeight, thick = 0.7f;
-        float offset = style.width * 0.5f + thick * 0.5f;
         int n = pts.Count;
+        float Offset(int i) => widths[i] * 0.5f + thick * 0.5f;
         int segs = loop ? n : n - 1;
 
         void Piece(Vector3 center, Quaternion rot, Vector3 size, bool useA)
@@ -339,8 +358,8 @@ public static class TrackBuilder
             for (int i = 0; i < segs; i++)
             {
                 int j = (i + 1) % n;
-                var a = pts[i] + rights[i] * offset * side;
-                var b = pts[j] + rights[j] * offset * side;
+                var a = pts[i] + rights[i] * Offset(i) * side;
+                var b = pts[j] + rights[j] * Offset(j) * side;
                 Piece((a + b) * 0.5f + Vector3.up * height * 0.5f, Quaternion.LookRotation(b - a),
                       new Vector3(thick, height, Vector3.Distance(a, b) + 0.3f), (i / 3) % 2 == 0);
             }
@@ -351,7 +370,7 @@ public static class TrackBuilder
             foreach (int e in new[] { 0, n - 1 })
             {
                 var c = pts[e] + tangents[e] * (e == 0 ? -1f : 1f) + Vector3.up * height * 0.5f;
-                Piece(c, Quaternion.LookRotation(tangents[e]), new Vector3(style.width + thick * 2f, height, thick), true);
+                Piece(c, Quaternion.LookRotation(tangents[e]), new Vector3(widths[e] + thick * 2f, height, thick), true);
             }
         }
         Merge(parent, "Walls_A", partsA, style.wallA);

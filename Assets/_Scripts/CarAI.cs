@@ -48,12 +48,12 @@ public class CarAI : MonoBehaviour
         float steer = Mathf.Clamp(angle / 25f, -1f, 1f);
 
         // Speed: full speed on straights, down to half through sharp turns; the throttle value brakes when too fast
-        float top = car.maxSpeed * car.Bed.WeightFactor * (car.Boosting ? car.boostSpeedMultiplier : 1f);
+        float top = car.maxSpeed * car.Bed.WeightFactor * (car.ActiveNitroLevel == 2 ? car.nitroSpeedMultiplier : car.ActiveNitroLevel == 1 ? car.boostSpeedMultiplier : 1f);
         float sharp = Mathf.InverseLerp(20f, 70f, Mathf.Max(Mathf.Abs(angle), bend));
         float target = top * speedFactor * Mathf.Lerp(1f, 0.5f, sharp);
         float throttle = Mathf.Clamp((target - car.Speed) / 4f, -1f, 1f);
 
-        // Drift through a bend (steering the same way) for about a second, then release for the boost
+        // Drift through a bend (steering the same way) for about a second; drifting fills the nitro tank
         bool drift = car.Drifting ? car.DriftTime < 1f && Mathf.Abs(angle) > 10f
                                   : Mathf.Abs(angle) > 30f && car.Speed > car.minDriftSpeed + 3f && Time.time > driftReadyAt;
         if (car.Drifting) driftReadyAt = Time.time + 2f;
@@ -80,8 +80,8 @@ public class CarAI : MonoBehaviour
         if (racer.passed != lastPassed || racer.finished) { lastPassed = racer.passed; progressAt = Time.time; }
         else if (Time.time - progressAt > NoProgressRespawn) { car.Respawn(); progressAt = Time.time; }
 
-        // Nitro: fire a full tank on a straight
-        if (!drift && Mathf.Abs(angle) < 8f && bend < 15f && Time.time >= reverseUntil) car.TryFireNitro();
+        // Nitro: wait for a full tank (red), fire it on a straight
+        if (car.NitroReady && !drift && Mathf.Abs(angle) < 8f && bend < 15f && Time.time >= reverseUntil) car.TryFireNitro();
 
         car.AIMove = new Vector2(steer, throttle);
         car.AIDrift = drift;
