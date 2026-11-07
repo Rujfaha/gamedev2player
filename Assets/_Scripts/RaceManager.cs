@@ -185,6 +185,21 @@ public class RaceManager : MonoBehaviour
         return pos;
     }
 
+    /// <summary>Racer indices from best to worst score (highest total; a tie goes to whoever is ahead on the road).</summary>
+    public int[] Ranking()
+    {
+        var order = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < Racers.Length; i++) order.Add(i);
+        order.Sort((x, y) =>
+        {
+            var a = Racers[x];
+            var b = Racers[y];
+            if (a.Total != b.Total) return b.Total.CompareTo(a.Total);
+            return Ahead(a, b) ? -1 : Ahead(b, a) ? 1 : x.CompareTo(y);
+        });
+        return order.ToArray();
+    }
+
     bool Ahead(Racer a, Racer b)
     {
         if (a.finished != b.finished) return a.finished;

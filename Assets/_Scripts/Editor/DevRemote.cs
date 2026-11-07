@@ -73,6 +73,27 @@ static class DevRemote
                             .Invoke(menu, new object[] { int.Parse(parts[1]), int.Parse(parts[2]) });
                         break;
                     }
+                    case "clearrecords":
+                        foreach (var name in new[] { "NEBULA RING", "FOREST SWITCHBACK", "CPE ARENA CIRCUIT" })
+                        { PlayerPrefs.DeleteKey("gd_best_" + name); PlayerPrefs.DeleteKey("gd_best_" + name + "_who"); }
+                        PlayerPrefs.Save();
+                        break;
+                    case "endrace": // test results: random gems, the first few racers finish, the rest DNF
+                    {
+                        var rm = RaceManager.Instance;
+                        var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+                        var finish = typeof(RaceManager).GetMethod("Finish", flags);
+                        var end = typeof(RaceManager).GetMethod("EndRace", flags);
+                        var colors = new[] { GemColor.Red, GemColor.Blue, GemColor.Gold };
+                        for (int i = 0; i < rm.Racers.Length; i++)
+                        {
+                            int g = Random.Range(1, rm.Racers[i].car.Bed.Capacity + 1);
+                            for (int q = 0; q < g; q++) rm.Racers[i].car.Bed.TryAdd(colors[Random.Range(0, 3)]);
+                        }
+                        for (int i = 0; i < rm.Racers.Length - 1; i++) finish.Invoke(rm, new object[] { rm.Racers[i] });
+                        if (rm.State != RaceManager.Phase.Results) end.Invoke(rm, null);
+                        break;
+                    }
                     case "key":
                         if (Keyboard.current != null && System.Enum.TryParse<Key>(arg, out var k))
                         {

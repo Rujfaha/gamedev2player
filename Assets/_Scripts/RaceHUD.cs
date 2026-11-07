@@ -27,7 +27,8 @@ public class RaceHUD : MonoBehaviour
     RaceManager race;
     PlayerUI[] players;
     Text center, centerSub, winner;
-    GameObject resultsDim;
+    GameObject resultsDim, hudRoot;
+    Leaderboard leaderboard;
     Font font;
 
     public void Init(RaceManager raceManager, TrackLayout layout)
@@ -44,6 +45,7 @@ public class RaceHUD : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920, 1080);
         scaler.matchWidthOrHeight = 0.5f;
         var root = canvasGo.transform;
+        hudRoot = canvasGo;
 
         int humans = race.HumanCount;
         float share = 1f / humans; // screen share of each player: half each for two players, the whole screen for one
@@ -127,6 +129,12 @@ public class RaceHUD : MonoBehaviour
                 centerSub.text = "LAST CALL  " + Mathf.CeilToInt(race.LastCallLeft) + "s";
                 break;
             case RaceManager.Phase.Results:
+                if (leaderboard == null)
+                {
+                    // full leaderboard over everything; the split-screen HUD is hidden behind it
+                    leaderboard = Leaderboard.Create(transform, race, Name);
+                    hudRoot.SetActive(false);
+                }
                 resultsDim.SetActive(true);
                 center.text = "";
                 centerSub.text = Standings() + "R / Enter = again      N = next      M / Esc = menu";

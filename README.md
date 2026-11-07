@@ -137,3 +137,8 @@ Active Input Handling is set to *Both*.
 - Boost pads (`BoostPad.cs`): free short boost. Jump ramps (`JumpPad.cs`) in front of 14 m gaps on the long straights; the ramp sets a minimum speed so every car clears the gap.
 - Scenery: portal rings, pylons, tumbling asteroids (`Spinner.cs`), ringed gas giant, moon, starfield sky + particle stars. Materials made by Rebuild Config (`BuildSpace`).
 - Keys during a race: 1 = Forest, 2 = Arena, 3 = Space.
+
+## Results leaderboard
+
+- When the race ends, `Leaderboard.cs` shows every racer ranked by score: car, finish place + time (or DNF), gem points, bonus, total.
+- Best total per course is saved (PlayerPrefs `gd_best_<course name>`) and shown, with a NEW COURSE RECORD banner.
