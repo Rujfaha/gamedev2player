@@ -48,6 +48,8 @@ public class CarController : MonoBehaviour
     public Vector2 AIMove { get; set; }
     public bool AIDrift { get; set; }
     public GemBed Bed { get; private set; }
+    /// <summary>Which garage car this is (model, gem storage, handling).</summary>
+    public CarSpec Spec { get; private set; }
     public float Speed => Vector3.Dot(rb.linearVelocity, transform.forward);
     public bool Drifting => drifting;
     public float DriftTime => drifting ? driftTime : 0f;
@@ -76,20 +78,22 @@ public class CarController : MonoBehaviour
     Vector3 respawnPos;
     Quaternion respawnRot;
 
-    /// <summary>Humans first (index 0, 1), then the AI trucks (ai = true). tint overrides the body colour from GemDriftConfig.</summary>
-    public static CarController Create(GemDriftConfig cfg, int index, Vector3 pos, Quaternion rot, bool ai = false, Color? tint = null)
+    /// <summary>Humans first (index 0, 1), then the AI trucks (ai = true). tint overrides the body colour from GemDriftConfig;
+    /// carIndex picks the garage car (GemDriftConfig.cars).</summary>
+    public static CarController Create(GemDriftConfig cfg, int index, Vector3 pos, Quaternion rot, bool ai = false, Color? tint = null, int carIndex = 0)
     {
+        var spec = cfg.Car(carIndex);
         var root = new GameObject(ai ? "Car_AI" + index : "Car_P" + (index + 1)) { layer = Layers.Car };
         root.transform.SetPositionAndRotation(pos, rot);
 
         var rb = root.AddComponent<Rigidbody>();
-        rb.mass = 1f;
+        rb.mass = spec.weight;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         rb.angularDamping = 3f;
 
-        var size = cfg.carSize;
+        var size = spec.size;
         var col = root.AddComponent<BoxCollider>();
         col.center = new Vector3(0, size.y * 0.35f, 0);
         col.size = new Vector3(size.x * 0.95f, size.y * 0.7f, size.z * 0.95f);
@@ -102,21 +106,41 @@ public class CarController : MonoBehaviour
 
         var body = new GameObject("Body").transform;
         body.SetParent(root.transform, false);
-        var model = Instantiate(cfg.carModel, body);
-        model.transform.localRotation = Quaternion.Euler(0, cfg.modelYaw, 0);
-        model.transform.localScale = Vector3.one * cfg.modelScale;
-        model.transform.localPosition = cfg.modelOffset;
-        foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
-        var block = new MaterialPropertyBlock();
         var bodyTint = tint ?? (ai ? cfg.aiTints[(index - 2) % cfg.aiTints.Length] : cfg.playerTints[index]);
-        block.SetColor("_Color", bodyTint);
-        foreach (var r in model.GetComponentsInChildren<Renderer>()) r.SetPropertyBlock(block);
+        SpawnModel(spec, body, bodyTint);
 
         var car = root.AddComponent<CarController>();
         car.Tint = bodyTint;
+        car.Spec = spec;
+        car.maxSpeed *= spec.speed;
+        car.acceleration *= spec.accel;
+        car.turnRate *= spec.handling;
+        car.driftTurnRate *= Mathf.Lerp(1f, spec.handling, 0.6f);
+        car.grip *= spec.grip;
         car.Setup(cfg, index, body, ai);
         if (ai) root.AddComponent<CarAI>();
         return car;
+    }
+
+    /// <summary>Puts the garage car's model under parent, painted tint with a glossy clear-coat. Used by the race and the garage preview.</summary>
+    public static GameObject SpawnModel(CarSpec spec, Transform parent, Color tint)
+    {
+        if (spec.model == null) return new GameObject("NoModel");
+        var model = Instantiate(spec.model, parent);
+        model.transform.localRotation = Quaternion.Euler(0, spec.yaw, 0);
+        model.transform.localScale = Vector3.one * spec.scale;
+        model.transform.localPosition = spec.offset;
+        foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
+        var block = new MaterialPropertyBlock();
+        block.SetColor("_Color", tint);
+        block.SetFloat("_Glossiness", spec.gloss);
+        block.SetFloat("_Metallic", spec.metal);
+        foreach (var r in model.GetComponentsInChildren<Renderer>())
+        {
+            r.SetPropertyBlock(block);
+            r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.BlendProbesAndSkybox;
+        }
+        return model;
     }
 
     void Setup(GemDriftConfig cfg, int index, Transform bodyTransform, bool ai)
@@ -127,10 +151,10 @@ public class CarController : MonoBehaviour
         body = bodyTransform;
         controls = ai ? null : new PlayerControls(index, MatchSettings.Humans == 1);
         Bed = gameObject.AddComponent<GemBed>();
-        Bed.Setup(cfg, body, this);
+        Bed.Setup(cfg, Spec, body, this);
         SetRespawn(transform.position, transform.rotation);
 
-        var s = cfg.carSize;
+        var s = Spec.size;
         skids = new TrailRenderer[2];
         for (int i = 0; i < 2; i++)
         {

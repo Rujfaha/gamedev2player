@@ -93,6 +93,7 @@ public class GameBootstrap : MonoBehaviour
         var sky = id == TrackId.Forest ? cfg.skyForest : cfg.skyCircuit;
         if (sky != null) RenderSettings.skybox = sky;
         var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform, id);
+        GraphicsFx.SetupScene(cfg, sun, menu);
 
         foreach (var (pos, color) in layout.gems)
             GemPickup.CreateOnTrack(cfg, color, new Vector3(pos.x, 0f, pos.z));
@@ -104,9 +105,9 @@ public class GameBootstrap : MonoBehaviour
             var pal = MatchSettings.Palette(cfg);
             var demo = new CarController[2];
             for (int k = 0; k < demo.Length; k++)
-                demo[k] = CarController.Create(cfg, k, layout.starts[k].position, layout.starts[k].rotation, true, pal[2 + k]);
+                demo[k] = CarController.Create(cfg, k, layout.starts[k].position, layout.starts[k].rotation, true, pal[2 + k], Random.Range(0, cfg.CarCount));
             race.InitDemo(demo, layout);
-            MenuCamera.Create(demo[0].transform);
+            GraphicsFx.Apply(cfg, MenuCamera.Create(demo[0].transform));
             gameObject.AddComponent<MainMenu>();
             return;
         }
@@ -115,17 +116,17 @@ public class GameBootstrap : MonoBehaviour
         int aiCount = MatchSettings.AiCount(cfg);
         var cars = new CarController[humans + aiCount];
         for (int i = 0; i < humans; i++)
-            cars[i] = CarController.Create(cfg, i, layout.starts[i].position, layout.starts[i].rotation, false, MatchSettings.Tint(cfg, i));
+            cars[i] = CarController.Create(cfg, i, layout.starts[i].position, layout.starts[i].rotation, false, MatchSettings.Tint(cfg, i), MatchSettings.Car(cfg, i));
         for (int k = 0; k < aiCount; k++)
         {
             var start = AIStart(layout, k, humans + k);
-            cars[humans + k] = CarController.Create(cfg, humans + k, start.position, start.rotation, true, MatchSettings.Tint(cfg, humans + k));
+            cars[humans + k] = CarController.Create(cfg, humans + k, start.position, start.rotation, true, MatchSettings.Tint(cfg, humans + k), MatchSettings.Car(cfg, humans + k));
         }
 
         // one full-screen camera for a single player; split screen for two (P1 left half, P2 right half)
         float width = 1f / humans;
         for (int i = 0; i < humans; i++)
-            FollowCamera.Create(cars[i], new Rect(i * width, 0f, width, 1f));
+            GraphicsFx.Apply(cfg, FollowCamera.Create(cars[i], new Rect(i * width, 0f, width, 1f)).GetComponent<Camera>());
 
         race.Init(cars, layout);
         gameObject.AddComponent<RaceHUD>().Init(race, layout);

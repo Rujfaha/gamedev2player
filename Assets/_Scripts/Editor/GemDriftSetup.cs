@@ -23,8 +23,10 @@ public static class GemDriftSetup
     {
         EditorApplication.delayCall += () =>
         {
-            if (AssetDatabase.LoadAssetAtPath<GemDriftConfig>(ConfigPath) == null) Rebuild();
-            else if (!MenuIsFirstScene()) EnsureMenuScene();
+            var existing = AssetDatabase.LoadAssetAtPath<GemDriftConfig>(ConfigPath);
+            if (existing == null) { Rebuild(); return; }
+            if (!MenuIsFirstScene()) EnsureMenuScene();
+            if (existing.carsVersion != CarsVersion || existing.postResources == null) { BuildCars(existing); AssetDatabase.SaveAssets(); }
         };
     }
 
@@ -121,11 +123,68 @@ public static class GemDriftSetup
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(CarModelPath);
         if (model == null) { Debug.LogError("Gem Drift: car model not found at " + CarModelPath); return; }
         cfg.carModel = model;
-        MeasureCar(model, cfg);
+        BuildCars(cfg);
 
         EditorUtility.SetDirty(cfg);
         AssetDatabase.SaveAssets();
         Debug.Log($"GEMDRIFT_SETUP_OK yaw={cfg.modelYaw} scale={cfg.modelScale:F3} size={cfg.carSize} bed={cfg.bedCenter} bedSize={cfg.bedSize}");
+    }
+
+    // ---------- Garage ----------
+
+    const int CarsVersion = 3;
+    const string CarKit = "Assets/_Art/Kenney/CarKit/";
+
+    /// <summary>The garage roster: model, length, gem storage and handling of each car. Original names (no real brands).</summary>
+    static CarSpec[] Roster() => new[]
+    {
+        new CarSpec { name = "RAPTOR V12", classKey = "car_class_super", capacity = 5, pod = true,
+                      speed = 1.14f, accel = 1.1f, handling = 0.94f, grip = 0.9f, weight = 0.9f, gloss = 0.92f, metal = 0.55f },
+        new CarSpec { name = "STUTTGART GT", classKey = "car_class_gt", capacity = 7, pod = true,
+                      speed = 1.08f, accel = 1.05f, handling = 1.08f, grip = 1.05f, weight = 1f, gloss = 0.9f, metal = 0.5f },
+        new CarSpec { name = "FORMULA X", classKey = "car_class_formula", capacity = 4, pod = true,
+                      speed = 1.1f, accel = 1.2f, handling = 1.16f, grip = 1.15f, weight = 0.75f, gloss = 0.85f, metal = 0.3f },
+        new CarSpec { name = "HOT HATCH R", classKey = "car_class_hatch", capacity = 8, pod = true,
+                      speed = 1.02f, accel = 1.08f, handling = 1.12f, grip = 1f, weight = 0.95f, gloss = 0.85f, metal = 0.4f },
+        new CarSpec { name = "GEM HAULER", classKey = "car_class_truck", capacity = 12, pod = false,
+                      speed = 1f, accel = 1f, handling = 1f, grip = 1f, weight = 1.4f, gloss = 0.6f, metal = 0.25f },
+    };
+
+    static readonly (string file, float length)[] RosterModels =
+    {
+        ("race-future.fbx", 4.4f), ("sedan-sports.fbx", 4.3f), ("race.fbx", 4.5f), ("hatchback-sports.fbx", 4.0f), ("delivery-flat.fbx", TargetCarLength),
+    };
+
+    /// <summary>Measures every garage car, makes the gem pod materials and links the post FX resources.</summary>
+    public static void BuildCars(GemDriftConfig cfg)
+    {
+        Directory.CreateDirectory(GenFolder);
+        cfg.podShell = Mat("PodShell", new Color(0.05f, 0.055f, 0.07f), 0.55f, 0.35f);
+        cfg.podGlow = Mat("PodGlow", new Color(0.3f, 0.85f, 1f), 0.9f, 0f, new Color(0.12f, 0.5f, 0.85f));
+        cfg.postResources = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.PostProcessing.PostProcessResources>(
+            "Packages/com.unity.postprocessing/PostProcessing/PostProcessResources.asset");
+        if (cfg.postResources == null) Debug.LogWarning("Gem Drift: PostProcessResources not found (is com.unity.postprocessing installed?)");
+
+        var roster = Roster();
+        var list = new List<CarSpec>();
+        for (int i = 0; i < roster.Length; i++)
+        {
+            var spec = roster[i];
+            var model = AssetDatabase.LoadAssetAtPath<GameObject>(CarKit + RosterModels[i].file);
+            if (model == null) { Debug.LogWarning("Gem Drift: missing car model " + RosterModels[i].file); continue; }
+            spec.model = model;
+            MeasureCar(model, spec, RosterModels[i].length);
+            list.Add(spec);
+            if (!spec.pod) // the truck also fills the old single-car fields
+            {
+                cfg.carModel = model; cfg.modelYaw = spec.yaw; cfg.modelScale = spec.scale; cfg.modelOffset = spec.offset;
+                cfg.carSize = spec.size; cfg.bedCenter = spec.bedCenter; cfg.bedSize = spec.bedSize;
+            }
+            Debug.Log($"GEMDRIFT_CAR {spec.name} yaw={spec.yaw} scale={spec.scale:F3} size={spec.size} bed={spec.bedCenter} bedSize={spec.bedSize}");
+        }
+        cfg.cars = list.ToArray();
+        cfg.carsVersion = CarsVersion;
+        EditorUtility.SetDirty(cfg);
     }
 
     // Static batching of trees at runtime needs Read/Write enabled on the mesh.
@@ -185,7 +244,9 @@ public static class GemDriftSetup
         };
     }
 
-    static void MeasureCar(GameObject model, GemDriftConfig cfg)
+    /// <summary>Finds which way the model faces, scales it to targetLength, puts its wheels on y = 0 and finds the gem floor:
+    /// the truck's flat bed, or for a pod car the rear deck (biggest flat upward area in the back third).</summary>
+    static void MeasureCar(GameObject model, CarSpec cfg, float targetLength)
     {
         var inst = (GameObject)PrefabUtility.InstantiatePrefab(model);
         inst.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -221,24 +282,25 @@ public static class GemDriftSetup
             if (rel > 0.2f) hiPos = Mathf.Max(hiPos, v.y);
             if (rel < -0.2f) hiNeg = Mathf.Max(hiNeg, v.y);
         }
-        bool frontPositive = hiPos >= hiNeg;
-        cfg.modelYaw = longZ ? (frontPositive ? 0f : 180f) : (frontPositive ? -90f : 90f);
-        cfg.modelScale = TargetCarLength / rawLen;
+        // the Kenney Car Kit faces +Z; only the truck can tell front from back by its taller cab
+        bool frontPositive = cfg.pod || hiPos >= hiNeg;
+        cfg.yaw = longZ ? (frontPositive ? 0f : 180f) : (frontPositive ? -90f : 90f);
+        cfg.scale = targetLength / rawLen;
 
-        var rot = Quaternion.Euler(0, cfg.modelYaw, 0);
+        var rot = Quaternion.Euler(0, cfg.yaw, 0);
         for (int i = 0; i < verts.Count; i++)
         {
-            verts[i] = rot * (verts[i] * cfg.modelScale);
+            verts[i] = rot * (verts[i] * cfg.scale);
             normals[i] = rot * normals[i];
         }
         var b = BoundsOf(verts);
-        cfg.modelOffset = new Vector3(-b.center.x, -b.min.y, -b.center.z);
-        for (int i = 0; i < verts.Count; i++) verts[i] += cfg.modelOffset;
-        cfg.carSize = b.size;
+        cfg.offset = new Vector3(-b.center.x, -b.min.y, -b.center.z);
+        for (int i = 0; i < verts.Count; i++) verts[i] += cfg.offset;
+        cfg.size = b.size;
 
         // Bed floor = the biggest upward-facing flat area in the rear part of the truck.
         float L = b.size.z, W = b.size.x, H = b.size.y;
-        float zMin = -L * 0.5f + L * 0.05f, zMax = -L * 0.5f + L * 0.5f;
+        float zMin = -L * 0.5f + L * 0.05f, zMax = -L * 0.5f + L * (cfg.pod ? 0.36f : 0.5f);
         var bins = new Dictionary<int, float>();
         float binSize = H * 0.02f;
         for (int t = 0; t < tris.Count; t += 3)
@@ -257,8 +319,17 @@ public static class GemDriftSetup
         foreach (var kv in bins)
             if (kv.Value > bestArea) { bestArea = kv.Value; bedY = (kv.Key + 0.5f) * binSize; }
 
+        if (cfg.pod)
+        {
+            // pod sits on top of the rear body (85th percentile height, so a thin spoiler tip doesn't lift it)
+            var ys = new List<float>();
+            foreach (var v in verts)
+                if (v.z >= zMin && v.z <= zMax && Mathf.Abs(v.x) < W * 0.35f) ys.Add(v.y);
+            ys.Sort();
+            if (ys.Count > 0) bedY = ys[Mathf.Clamp((int)(ys.Count * 0.85f), 0, ys.Count - 1)] + 0.01f;
+        }
         cfg.bedCenter = new Vector3(0f, bedY, (zMin + zMax) * 0.5f);
-        cfg.bedSize = new Vector2(W * 0.7f, (zMax - zMin) * 0.8f);
+        cfg.bedSize = cfg.pod ? new Vector2(W * 0.5f, (zMax - zMin) * 0.75f) : new Vector2(W * 0.7f, (zMax - zMin) * 0.8f);
     }
 
     static Bounds BoundsOf(List<Vector3> pts)

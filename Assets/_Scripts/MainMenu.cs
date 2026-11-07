@@ -19,7 +19,9 @@ public class MainMenu : MonoBehaviour
 
     class ColorSlot
     {
-        public Text header, colorName;
+        public Text header, colorName, carName;
+        public RectTransform[] statFills;
+        public Text gemsValue;
         public Image[] frames;
         public Button[] swatches;
         public Button readyButton;
@@ -39,6 +41,8 @@ public class MainMenu : MonoBehaviour
 
     // colour screen
     readonly int[] pick = { 0, 1 };
+    readonly int[] carPick = { 0, 1 };
+    readonly int[] shownCar = { -1, -1 };
     readonly bool[] ready = new bool[2];
     ColorSlot[] slots;
     GameObject stage;
@@ -180,11 +184,12 @@ public class MainMenu : MonoBehaviour
         if (v == View.Colors)
         {
             string choose = Loc.T("hint_choose"), go = Loc.T("hint_ready");
-            if (MatchSettings.playerCount == 1) { Hint(choose, "A", "D"); Hint(go, "SPACE"); }
+            string car = Loc.T("hint_car");
+            if (MatchSettings.playerCount == 1) { Hint(car, "W", "S"); Hint(choose, "A", "D"); Hint(go, "SPACE"); }
             else
             {
-                Hint("P1 " + choose, "A", "D"); Hint("P1 " + go, "SPACE");
-                Hint("P2 " + choose, Loc.T("key_left"), Loc.T("key_right")); Hint("P2 " + go, "ENTER");
+                Hint("P1 " + car, "W", "S"); Hint("P1 " + choose, "A", "D"); Hint("P1 " + go, "SPACE");
+                Hint("P2 " + car, Loc.T("key_up"), Loc.T("key_down")); Hint("P2 " + choose, Loc.T("key_left"), Loc.T("key_right")); Hint("P2 " + go, "ENTER");
             }
         }
         else
@@ -374,6 +379,9 @@ public class MainMenu : MonoBehaviour
         var pal = MatchSettings.Palette(cfg);
         pick[0] = MatchSettings.colors[0];
         pick[1] = humans == 2 && MatchSettings.colors[1] == pick[0] ? (pick[0] + 1) % pal.Length : MatchSettings.colors[1];
+        carPick[0] = MatchSettings.cars[0] % cfg.CarCount;
+        carPick[1] = MatchSettings.cars[1] % cfg.CarCount;
+        shownCar[0] = shownCar[1] = -1;
         ready[0] = ready[1] = false;
 
         Header("color_title", 3, 56);
@@ -390,23 +398,43 @@ public class MainMenu : MonoBehaviour
             MenuUI.FitToContent(headerPill, true);
             PlaceCentre(headerPill, new Vector2(cx, 0.745f), Vector2.zero);
             s.header = headerPill.GetComponentInChildren<Text>().Italic();
-            var namePill = MenuUI.Pill(content, "", 34, MenuUI.Glass, Color.white, 30, 6);
+
+            // car selector:  <   RAPTOR V12   >
+            var carRow = MenuUI.Group(content, "CarRow", false, 18, TextAnchor.MiddleCenter);
+            PlaceCentre(carRow, new Vector2(cx, 0.66f), new Vector2(840f, 80f));
+            MenuUI.MakeButton(carRow, "<", 72, 64, () => ChangeCar(p, -1), 34, false);
+            var carPill = MenuUI.Pill(carRow, "", 46, MenuUI.Glass, Color.white, 34, 6);
+            carPill.gameObject.AddComponent<LayoutElement>().minWidth = 460f;
+            s.carName = carPill.GetComponentInChildren<Text>().Italic().Latin();
+            MenuUI.MakeButton(carRow, ">", 72, 64, () => ChangeCar(p, 1), 34, false);
+
+            var namePill = MenuUI.Pill(content, "", 30, MenuUI.Glass, Color.white, 30, 6);
             MenuUI.FitToContent(namePill, true);
-            PlaceCentre(namePill, new Vector2(cx, 0.295f), Vector2.zero);
+            PlaceCentre(namePill, new Vector2(cx, 0.33f), Vector2.zero);
             s.colorName = namePill.GetComponentInChildren<Text>();
 
+            // stats: speed / handling bars + gem storage count
+            var stats = MenuUI.Group(content, "Stats", false, 26, TextAnchor.MiddleCenter, new RectOffset(26, 26, 10, 12));
+            MenuUI.Plate(stats, MenuUI.Glass);
+            MenuUI.FitToContent(stats, true);
+            PlaceCentre(stats, new Vector2(cx, 0.268f), Vector2.zero);
+            s.statFills = new[] { StatBar(stats, "stat_speed"), StatBar(stats, "stat_accel"), StatBar(stats, "stat_handling") };
+            var gemGroup = MenuUI.Group(stats, "Gems", false, 8, TextAnchor.MiddleCenter);
+            MenuUI.Label(gemGroup, Loc.T("stat_gems"), 22, TextAnchor.MiddleLeft, MenuUI.Muted);
+            s.gemsValue = MenuUI.Label(gemGroup, "", 30, TextAnchor.MiddleLeft, MenuUI.Accent).Latin();
+
             var row = MenuUI.Group(content, "Swatches", false, 4, TextAnchor.MiddleCenter);
-            PlaceCentre(row, new Vector2(cx, 0.2f), new Vector2(840f, 120f));
+            PlaceCentre(row, new Vector2(cx, 0.185f), new Vector2(840f, 110f));
             s.frames = new Image[pal.Length];
             s.swatches = new Button[pal.Length];
             for (int c = 0; c < pal.Length; c++)
             {
                 int color = c;
-                s.swatches[c] = MenuUI.MakeChip(row, pal[c], 84f, () => ClickSwatch(p, color), out s.frames[c]);
+                s.swatches[c] = MenuUI.MakeChip(row, pal[c], 70f, () => ClickSwatch(p, color), out s.frames[c]);
             }
 
             s.readyButton = MenuUI.MakeButton(content, Loc.T("ready"), 380, 72, () => ToggleReady(p), 34, false);
-            PlaceCentre((RectTransform)s.readyButton.transform, new Vector2(cx, 0.115f), new Vector2(380f, 72f));
+            PlaceCentre((RectTransform)s.readyButton.transform, new Vector2(cx, 0.095f), new Vector2(380f, 72f));
             slots[p] = s;
         }
         RefreshColors();
@@ -426,16 +454,21 @@ public class MainMenu : MonoBehaviour
             pivot.localPosition = new Vector3(p * 30f, 0f, 0f);
             pivot.localRotation = Quaternion.Euler(0f, 205f, 0f);
             pivots[p] = pivot;
-            if (cfg.carModel != null)
-            {
-                var model = Instantiate(cfg.carModel, pivot);
-                model.transform.localRotation = Quaternion.Euler(0f, cfg.modelYaw, 0f);
-                model.transform.localScale = Vector3.one * cfg.modelScale;
-                model.transform.localPosition = cfg.modelOffset;
-                foreach (var c in model.GetComponentsInChildren<Collider>()) Destroy(c);
-                truckRenderers[p] = model.GetComponentsInChildren<Renderer>();
-            }
-            else truckRenderers[p] = new Renderer[0];
+            truckRenderers[p] = new Renderer[0];
+
+            // a glossy showroom floor disc + key light so the paint shows off
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Destroy(floor.GetComponent<Collider>());
+            floor.transform.SetParent(stage.transform, false);
+            floor.transform.localPosition = pivot.localPosition + new Vector3(0f, -0.05f, 0f);
+            floor.transform.localScale = new Vector3(6.4f, 0.05f, 6.4f);
+            floor.GetComponent<Renderer>().sharedMaterial = cfg.podShell != null ? cfg.podShell : cfg.road;
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Destroy(ring.GetComponent<Collider>());
+            ring.transform.SetParent(stage.transform, false);
+            ring.transform.localPosition = pivot.localPosition + new Vector3(0f, -0.07f, 0f);
+            ring.transform.localScale = new Vector3(6.7f, 0.04f, 6.7f);
+            if (cfg.podGlow != null) ring.GetComponent<Renderer>().sharedMaterial = cfg.podGlow;
 
             var camGo = new GameObject("Camera" + p);
             camGo.transform.SetParent(stage.transform, false);
@@ -447,6 +480,8 @@ public class MainMenu : MonoBehaviour
             cam.fieldOfView = 30f;
             cam.nearClipPlane = 0.5f;
             cam.farClipPlane = 60f;
+            cam.allowHDR = false; // an HDR camera that only clears depth would start from a stale buffer
+            cam.allowMSAA = false;
             float cx = ColumnX(humans, p);
             cam.rect = new Rect(cx - 0.2f, 0.34f, 0.4f, 0.37f);
         }
@@ -472,9 +507,51 @@ public class MainMenu : MonoBehaviour
             label.text = Loc.T(ready[p] ? "ready_on" : "ready");
             if (ready[p]) MenuUI.SetLook(s.readyButton, MenuUI.Green, MenuUI.Green * 1.2f, Color.white, Color.white);
             else MenuUI.SetLook(s.readyButton, MenuUI.Chip, MenuUI.Accent, Color.white, MenuUI.Ink);
+            var spec = cfg.Car(carPick[p]);
+            if (shownCar[p] != carPick[p])
+            {
+                foreach (Transform child in pivots[p]) Destroy(child.gameObject);
+                var model = CarController.SpawnModel(spec, pivots[p], pal[pick[p]]);
+                truckRenderers[p] = model.GetComponentsInChildren<Renderer>();
+                GemBed.BuildPreview(cfg, spec, pivots[p]);
+                shownCar[p] = carPick[p];
+            }
+            s.carName.text = spec.name;
+            s.colorName.text = Loc.T(spec.classKey) + "   ·   " + Loc.T(MatchSettings.ColorKeys[pick[p]]);
+            SetStat(s.statFills[0], Mathf.InverseLerp(0.9f, 1.16f, spec.speed));
+            SetStat(s.statFills[1], Mathf.InverseLerp(0.9f, 1.22f, spec.accel));
+            SetStat(s.statFills[2], Mathf.InverseLerp(0.85f, 1.18f, (spec.handling + spec.grip) * 0.5f));
+            s.gemsValue.text = spec.capacity.ToString();
             block.SetColor("_Color", pal[pick[p]]);
+            block.SetFloat("_Glossiness", spec.gloss);
+            block.SetFloat("_Metallic", spec.metal);
             foreach (var r in truckRenderers[p]) r.SetPropertyBlock(block);
         }
+    }
+
+    RectTransform StatBar(Transform parent, string key)
+    {
+        var g = MenuUI.Group(parent, "Stat", true, 6, TextAnchor.MiddleLeft);
+        MenuUI.Label(g, Loc.T(key), 20, TextAnchor.MiddleLeft, MenuUI.Muted);
+        var track = MenuUI.Stretch(g, "Track", Vector2.zero, Vector2.one);
+        var le = track.gameObject.AddComponent<LayoutElement>();
+        le.preferredWidth = 130f;
+        le.preferredHeight = 10f;
+        MenuUI.Plate(track, new Color(1f, 1f, 1f, 0.15f));
+        var fill = MenuUI.Stretch(track, "Fill", Vector2.zero, Vector2.one);
+        MenuUI.Plate(fill, MenuUI.Accent);
+        return fill;
+    }
+
+    static void SetStat(RectTransform fill, float v) => fill.anchorMax = new Vector2(Mathf.Lerp(0.12f, 1f, Mathf.Clamp01(v)), 1f);
+
+    void ChangeCar(int p, int dir)
+    {
+        if (ready[p]) return;
+        int n = cfg.CarCount;
+        carPick[p] = (carPick[p] + dir + n) % n;
+        MenuUI.Blip(600f);
+        RefreshColors();
     }
 
     void ClickSwatch(int p, int color)
@@ -495,7 +572,7 @@ public class MainMenu : MonoBehaviour
     void CheckAllReady()
     {
         for (int p = 0; p < slots.Length; p++) if (!ready[p]) return;
-        for (int p = 0; p < slots.Length; p++) MatchSettings.colors[p] = pick[p];
+        for (int p = 0; p < slots.Length; p++) { MatchSettings.colors[p] = pick[p]; MatchSettings.cars[p] = carPick[p]; }
         Show(View.Map);
     }
 
@@ -507,19 +584,23 @@ public class MainMenu : MonoBehaviour
         int n = MatchSettings.ColorKeys.Length;
         for (int p = 0; p < humans; p++)
         {
-            bool left = false, right = false, confirm = false;
+            bool left = false, right = false, confirm = false, up = false, down = false;
             if (kb != null)
             {
                 if (p == 0 || humans == 1)
                 {
                     left |= kb.aKey.wasPressedThisFrame;
                     right |= kb.dKey.wasPressedThisFrame;
+                    up |= kb.wKey.wasPressedThisFrame;
+                    down |= kb.sKey.wasPressedThisFrame;
                     confirm |= kb.spaceKey.wasPressedThisFrame || kb.leftShiftKey.wasPressedThisFrame;
                 }
                 if (p == 1 || humans == 1)
                 {
                     left |= kb.leftArrowKey.wasPressedThisFrame;
                     right |= kb.rightArrowKey.wasPressedThisFrame;
+                    up |= kb.upArrowKey.wasPressedThisFrame;
+                    down |= kb.downArrowKey.wasPressedThisFrame;
                     confirm |= kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame || kb.slashKey.wasPressedThisFrame;
                 }
             }
@@ -528,6 +609,8 @@ public class MainMenu : MonoBehaviour
             {
                 left |= gp.dpad.left.wasPressedThisFrame || gp.leftStick.left.wasPressedThisFrame;
                 right |= gp.dpad.right.wasPressedThisFrame || gp.leftStick.right.wasPressedThisFrame;
+                up |= gp.dpad.up.wasPressedThisFrame || gp.leftStick.up.wasPressedThisFrame;
+                down |= gp.dpad.down.wasPressedThisFrame || gp.leftStick.down.wasPressedThisFrame;
                 confirm |= gp.buttonSouth.wasPressedThisFrame;
             }
 
@@ -537,6 +620,7 @@ public class MainMenu : MonoBehaviour
                 ToggleReady(p);
                 if (view != View.Colors) return; // everyone is ready: the map screen is up
             }
+            else if (!ready[p] && (up || down)) ChangeCar(p, down ? 1 : -1);
             else if (!ready[p] && (left || right))
             {
                 int dir = right ? 1 : -1, other = humans == 2 ? pick[1 - p] : -1, c = pick[p];

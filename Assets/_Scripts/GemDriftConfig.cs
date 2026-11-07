@@ -12,6 +12,11 @@ public class GemDriftConfig : ScriptableObject
     public Vector3 carSize;         // size after yaw/scale (x = width, y = height, z = length)
     public Vector3 bedCenter;       // truck-bed floor centre in car space
     public Vector2 bedSize;         // bed floor width (x) and length (y)
+    [Header("Garage: every car a racer can pick (built by Rebuild Config / EnsureCars)")]
+    public CarSpec[] cars;
+    public int carsVersion;         // bumped by the editor setup when the roster changes
+    public UnityEngine.Rendering.PostProcessing.PostProcessResources postResources; // needed to add post FX at runtime
+
     public Color[] playerTints = { new Color(1f, 0.55f, 0.5f), new Color(0.55f, 0.75f, 1f) };
 
     [Header("AI racers")]
@@ -33,6 +38,7 @@ public class GemDriftConfig : ScriptableObject
     public Material skid, spark;
     public Material flame;                     // additive soft dot for exhaust fire
     public Material nitroTankShell, nitroGlow; // little nitro tank on the bed
+    public Material podShell, podGlow;         // gem pod on the sports cars
 
     [Header("Forest course")]
     public Material dirtRoad, forestGround, woodA, woodB;
@@ -44,6 +50,19 @@ public class GemDriftConfig : ScriptableObject
     public GameObject[] decorModels;
     public Material skyCircuit, skyForest;
     public Material cpeBanner;        // CPE · KMUTT sign print (Assets/_Art/Banners)
+
+    public int CarCount => cars != null && cars.Length > 0 ? cars.Length : 1;
+
+    /// <summary>Car i of the garage. Without a garage (old config) the single truck fields above are used.</summary>
+    public CarSpec Car(int i)
+    {
+        if (cars != null && cars.Length > 0) return cars[((i % cars.Length) + cars.Length) % cars.Length];
+        return new CarSpec
+        {
+            name = "GEM HAULER", model = carModel, yaw = modelYaw, scale = modelScale, offset = modelOffset, size = carSize,
+            bedCenter = bedCenter, bedSize = bedSize, capacity = 12, pod = false,
+        };
+    }
 
     public Material GemMaterial(GemColor c) => c == GemColor.Gold ? gemGold : c == GemColor.Blue ? gemBlue : gemRed;
 
@@ -57,4 +76,29 @@ public enum GemColor { Red = 1, Blue = 2, Gold = 3 }
 public static class Layers
 {
     public const int Road = 6, Wall = 7, Car = 8, Gem = 9;
+}
+
+/// <summary>One car of the garage: model placement (measured in the editor), where its gems ride, and its handling.</summary>
+[System.Serializable]
+public class CarSpec
+{
+    public string name;               // shown in the garage, e.g. "RAPTOR V12"
+    public string classKey;           // Loc key of its class line, e.g. "car_class_super"
+    public GameObject model;
+    public float yaw, scale = 1f;
+    public Vector3 offset, size;
+    public Vector3 bedCenter;         // floor of the gem storage in car space
+    public Vector2 bedSize;           // storage floor width (x) and length (y)
+    public bool pod;                  // true: no truck bed, so a gem pod (tray + rails) is built on the rear deck
+    public int capacity = 12;         // gems it can carry
+
+    [Header("Handling (1 = the original truck)")]
+    public float speed = 1f;          // top speed
+    public float accel = 1f;
+    public float handling = 1f;       // turn rate
+    public float grip = 1f;           // sideways grip (lower = slides more)
+    public float weight = 1f;         // ramming mass: heavier knocks lighter cars around
+
+    [Header("Paint")]
+    public float gloss = 0.8f, metal = 0.35f;
 }

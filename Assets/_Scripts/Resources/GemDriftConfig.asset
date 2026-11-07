@@ -19,6 +19,99 @@ MonoBehaviour:
   carSize: {x: 1.9384618, y: 1.7446156, z: 4.2}
   bedCenter: {x: 0, y: 0.64550775, z: -0.94499993}
   bedSize: {x: 1.3569232, y: 1.512}
+  cars:
+  - name: RAPTOR V12
+    classKey: car_class_super
+    model: {fileID: 919132149155446097, guid: d704fd895ea0f4827ae09e57eab36ab3, type: 3}
+    yaw: 0
+    scale: 1.654277
+    offset: {x: -0, y: -0, z: -0}
+    size: {x: 1.9851325, y: 1.3772588, z: 4.4}
+    bedCenter: {x: 0, y: 1.0025662, z: -1.298}
+    bedSize: {x: 0.9925662, y: 1.023}
+    pod: 1
+    capacity: 5
+    speed: 1.14
+    accel: 1.1
+    handling: 0.94
+    grip: 0.9
+    weight: 0.9
+    gloss: 0.92
+    metal: 0.55
+  - name: STUTTGART GT
+    classKey: car_class_gt
+    model: {fileID: 919132149155446097, guid: b7b01a48be9404c3ba25d004ada8ed5f, type: 3}
+    yaw: 0
+    scale: 1.6862746
+    offset: {x: -0, y: -0, z: 0.042156935}
+    size: {x: 2.192157, y: 1.8549018, z: 4.3}
+    bedCenter: {x: 0, y: 1.1903924, z: -1.2685}
+    bedSize: {x: 1.0960785, y: 0.9997501}
+    pod: 1
+    capacity: 7
+    speed: 1.08
+    accel: 1.05
+    handling: 1.08
+    grip: 1.05
+    weight: 1
+    gloss: 0.9
+    metal: 0.5
+  - name: FORMULA X
+    classKey: car_class_formula
+    model: {fileID: 919132149155446097, guid: 32867f2d4a8814b5aaf1482dc339e782, type: 3}
+    yaw: 0
+    scale: 1.7579688
+    offset: {x: -0, y: -0, z: -0}
+    size: {x: 2.2853594, y: 1.2877901, z: 4.5}
+    bedCenter: {x: 0, y: 0.9523491, z: -1.3275}
+    bedSize: {x: 1.1426797, y: 1.0462501}
+    pod: 1
+    capacity: 4
+    speed: 1.1
+    accel: 1.2
+    handling: 1.16
+    grip: 1.15
+    weight: 0.75
+    gloss: 0.85
+    metal: 0.3
+  - name: HOT HATCH R
+    classKey: car_class_hatch
+    model: {fileID: 919132149155446097, guid: 942a4222ceee24669b15aade1ec229d8, type: 3}
+    yaw: 0
+    scale: 1.4035088
+    offset: {x: -0, y: -0, z: 0.035087585}
+    size: {x: 1.8245614, y: 1.5438597, z: 4}
+    bedCenter: {x: 0, y: 0.83775824, z: -1.18}
+    bedSize: {x: 0.9122807, y: 0.93}
+    pod: 1
+    capacity: 8
+    speed: 1.02
+    accel: 1.08
+    handling: 1.12
+    grip: 1
+    weight: 0.95
+    gloss: 0.85
+    metal: 0.4
+  - name: GEM HAULER
+    classKey: car_class_truck
+    model: {fileID: 919132149155446097, guid: 2fbcd4c3c881d44f3903a601ecbe47af, type: 3}
+    yaw: 0
+    scale: 1.2923079
+    offset: {x: -0, y: -0, z: 0.032307625}
+    size: {x: 1.9384618, y: 1.7446156, z: 4.2}
+    bedCenter: {x: 0, y: 0.64550775, z: -0.94499993}
+    bedSize: {x: 1.3569232, y: 1.512}
+    pod: 0
+    capacity: 12
+    speed: 1
+    accel: 1
+    handling: 1
+    grip: 1
+    weight: 1.4
+    gloss: 0.6
+    metal: 0.25
+  carsVersion: 3
+  postResources: {fileID: 11400000, guid: d82512f9c8e5d4a4d938b575d47f88d4, type: 2}
   playerTints:
   - {r: 1, g: 0.35, b: 0.3, a: 1}
   - {r: 0.3, g: 0.65, b: 1, a: 1}
@@ -46,6 +139,8 @@ MonoBehaviour:
   flame: {fileID: 2100000, guid: fe2f090eddb394ea08bff399a2d3eae2, type: 2}
   nitroTankShell: {fileID: 2100000, guid: 3ad107e14955742b4b1d0c2d811310ec, type: 2}
   nitroGlow: {fileID: 2100000, guid: 9f3c2f07883c0439fb4609043d93f56c, type: 2}
+  podShell: {fileID: 2100000, guid: ea42f3249289f442b8aa1ea597cf416a, type: 2}
+  podGlow: {fileID: 2100000, guid: 75c717d3c634a483d9ecc73aa9dbd03a, type: 2}
   dirtRoad: {fileID: 2100000, guid: 2460d07df08f44312b00747d74d8023f, type: 2}
   forestGround: {fileID: 2100000, guid: 54d7715e917c94a428419c3768e3bc9d, type: 2}
   woodA: {fileID: 2100000, guid: e6c279ea18e0448c694d9f341d8f310b, type: 2}

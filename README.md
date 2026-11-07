@@ -120,3 +120,12 @@ Active Input Handling is set to *Both*.
 1. `git clone` this repo, then `git checkout design` (A) or `git checkout gameplay` (B).
 2. Unity Hub → **Add → Add project from disk** → pick this folder → open it with 6000.0.85f1.
 3. Run `git pull` before you start work, commit often, and merge into `main` when a piece is done.
+
+## Garage (car select) and graphics
+
+- 5 cars (`GemDriftConfig.cars`, roster in `Editor/GemDriftSetup.cs` → `Roster()`): RAPTOR V12, STUTTGART GT, FORMULA X, HOT HATCH R, GEM HAULER.
+  Original names only, no real car brands. Faster cars carry fewer gems (4–12). Sports cars carry gems in a pod on the rear deck (`GemBed`).
+- Menu step 3 is now "Choose your car": P1 W/S car, A/D colour; P2 Up/Down car, Left/Right colour.
+- Graphics: linear colour space, Post Processing Stack v2 (bloom, colour grading, vignette, AO on Very High+), SMAA, longer shadows,
+  reflection probe for glossy paint (`GraphicsFx.cs`). WebGL defaults to the Very High quality level.
+- Changing the roster: edit `Roster()`, bump `CarsVersion`; the config rebuilds the cars on the next editor load.

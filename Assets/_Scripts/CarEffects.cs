@@ -25,7 +25,8 @@ public class CarEffects : MonoBehaviour
         car = owner;
         block = new MaterialPropertyBlock();
         BuildGradients();
-        var s = cfg.carSize;
+        var spec = owner.Spec;
+        var s = spec.size;
 
         // two exhaust pipes, low at the back, flames pointing backwards
         exhausts = new ParticleSystem[2];
@@ -41,10 +42,10 @@ public class CarEffects : MonoBehaviour
         // little nitro tank lying across the front of the bed
         if (cfg.nitroTankShell != null && cfg.nitroGlow != null)
         {
-            float len = cfg.bedSize.x * 0.85f, radius = 0.17f;
+            float len = spec.bedSize.x * 0.85f, radius = 0.17f;
             var tank = new GameObject("NitroTank").transform;
             tank.SetParent(body, false);
-            tank.localPosition = cfg.bedCenter + new Vector3(0f, radius + 0.03f, cfg.bedSize.y * 0.5f + 0.05f);
+            tank.localPosition = spec.bedCenter + new Vector3(0f, radius + 0.03f, spec.bedSize.y * 0.5f + 0.05f);
             tank.localRotation = Quaternion.Euler(0f, 0f, 90f); // cylinder axis → across the truck
 
             var shell = Cylinder(tank, "Shell", cfg.nitroTankShell);

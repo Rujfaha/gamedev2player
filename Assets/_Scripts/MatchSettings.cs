@@ -13,6 +13,7 @@ public static class MatchSettings
     public static int playerCount = 2;    // human players: 1 or 2
     public static int totalRacers = 4;    // players + AI trucks
     public static int[] colors = { 0, 1 }; // palette index of P1's and P2's truck
+    public static int[] cars = { 0, 1 };   // garage car of P1 and P2 (GemDriftConfig.cars)
     public static int course;             // 0 = Forest, 1 = Circuit (see GameBootstrap.SceneForCourse)
 
     // Statics survive scene loads; make sure a fresh Play session starts from the config defaults.
@@ -32,6 +33,14 @@ public static class MatchSettings
 
     public static int Humans => FromMenu ? playerCount : 2;
     public static int AiCount(GemDriftConfig cfg) => FromMenu ? Mathf.Max(0, totalRacers - playerCount) : Mathf.Max(0, cfg.aiCount);
+
+    /// <summary>Garage car of racer number i: humans keep their pick, AI racers get a spread of the other cars.</summary>
+    public static int Car(GemDriftConfig cfg, int racer)
+    {
+        int n = cfg.CarCount;
+        if (racer < Humans) return FromMenu ? cars[racer] % n : racer % n;
+        return (racer * 3 + 1) % n;
+    }
 
     /// <summary>Body colour of racer number i (humans first, then AI). AI trucks get the colours no human picked.</summary>
     public static Color Tint(GemDriftConfig cfg, int racer)

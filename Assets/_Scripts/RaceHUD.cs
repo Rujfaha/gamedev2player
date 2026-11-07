@@ -147,7 +147,7 @@ public class RaceHUD : MonoBehaviour
                     : race.Loop ? "LAP " + race.DisplayLap(i) + "/" + race.Laps
                     : "ROUTE " + Mathf.RoundToInt(100f * r.passed / race.CheckpointCount) + "%";
         ui.position.text = Ordinal(race.PositionOf(i));
-        ui.gems.text = "GEMS " + car.Bed.Count + "/" + GemBed.Capacity + "   VALUE " + car.Bed.Value;
+        ui.gems.text = "GEMS " + car.Bed.Count + "/" + car.Bed.Capacity + "   VALUE " + car.Bed.Value;
         ui.speed.text = Mathf.RoundToInt(Mathf.Abs(car.Speed) * 3.6f) + " km/h";
 
 
