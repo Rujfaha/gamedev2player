@@ -9,8 +9,8 @@ using UnityEngine;
 public static class SpaceTrack
 {
     const int PadToGap = 3, GapSamples = 7;          // gap starts 6 m after the ramp and is 14 m long
-    const int JumpClear = 45, MaxJumps = 2;          // a jump needs ~90 m of straight road after the ramp
-    const int BoostSpacing = 55, MaxBoosts = 7;      // a boost pad every ~110 m or more
+    const int JumpClear = 45, MaxJumps = 4;          // a jump needs ~90 m of straight road after the ramp
+    const int BoostSpacing = 55, MaxBoosts = 14;      // a boost pad every ~110 m or more
 
     public class Plan
     {
@@ -36,12 +36,12 @@ public static class SpaceTrack
         return false;
     }
 
-    public static Plan PlanFeatures(Vector3[] tangents)
+    public static Plan PlanFeatures(Vector3[] tangents, bool loop)
     {
         int n = tangents.Length;
         var plan = new Plan();
         int last = -999;
-        for (int i = 40; i < n - JumpClear - 10 && plan.jumps.Count < MaxJumps; i++)
+        for (int i = 40; i < n - JumpClear - 40 && plan.jumps.Count < MaxJumps; i++)
         {
             if (i - last < 150) continue;
             if (Bend(tangents, i, JumpClear) > 5f || Bend(tangents, (i - 10 + n) % n, 10) > 8f) continue;
@@ -51,7 +51,7 @@ public static class SpaceTrack
         }
 
         last = -999;
-        for (int i = 25; i < n - 15 && plan.boosts.Count < MaxBoosts; i++)
+        for (int i = 25; i < n - 30 && plan.boosts.Count < MaxBoosts; i++)
         {
             if (i - last < BoostSpacing) continue;
             bool nearJump = false;
@@ -64,9 +64,21 @@ public static class SpaceTrack
     }
 
     /// <summary>The road surface (with mesh colliders on the Road layer), broken into pieces around the gaps.</summary>
-    public static void RoadPieces(Transform root, List<Vector3> pts, Vector3[] rights, float[] widths, HashSet<int> gap, Material mat)
+    public static void RoadPieces(Transform root, List<Vector3> pts, Vector3[] rights, float[] widths, HashSet<int> gap, Material mat, bool loop)
     {
         int n = pts.Count;
+        if (!loop)
+        {
+            // one-way route: straight walk from start to end, cutting at the gaps
+            var run = new List<int>();
+            for (int i = 0; i <= n; i++)
+            {
+                if (i < n && !gap.Contains(i)) { run.Add(i); continue; }
+                if (run.Count >= 2) BuildPiece(root, pts, rights, widths, run, mat);
+                run.Clear();
+            }
+            return;
+        }
         // start right after a gap (or at 0 when there is none) and walk once round the loop
         int start = 0;
         for (int i = 0; i < n; i++) if (gap.Contains(i) && !gap.Contains((i + 1) % n)) { start = (i + 1) % n; break; }

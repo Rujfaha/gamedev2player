@@ -67,7 +67,7 @@ public class MainMenu : MonoBehaviour
         MenuUI.FitToContent(hintBar, true);
 
         // background music: drop an AudioClip named MenuMusic into any Resources folder (the volume follows Settings)
-        var clip = Resources.Load<AudioClip>("MenuMusic");
+        var clip = Resources.Load<AudioClip>("Music/MenuMusic") ?? Resources.Load<AudioClip>("MenuMusic");
         if (clip != null)
         {
             music = gameObject.AddComponent<AudioSource>();
@@ -641,9 +641,9 @@ public class MainMenu : MonoBehaviour
         row.anchorMin = row.anchorMax = new Vector2(0.5f, 0.44f);
         row.pivot = new Vector2(0.5f, 0.5f);
         MenuUI.FitToContent(row, true);
-        CourseCard(row, 2, "01", new Color(0.36f, 0.16f, 0.62f), "course_space", "course_space_desc", "chip_laps", "chip_space_len", "chip_space");
+        CourseCard(row, 2, "01", new Color(0.36f, 0.16f, 0.62f), "course_space", "course_space_desc", "chip_oneway", "chip_space_len", "chip_space");
         CourseCard(row, 0, "02", new Color(0.17f, 0.52f, 0.34f), "course_forest", "course_forest_desc", "chip_oneway", "chip_forest_len", "chip_dirt");
-        CourseCard(row, 1, "03", new Color(0.26f, 0.44f, 0.88f), "course_circuit", "course_circuit_desc", "chip_laps", "chip_circuit_len", "chip_arena");
+        CourseCard(row, 1, "03", new Color(0.26f, 0.44f, 0.88f), "course_circuit", "course_circuit_desc", "chip_oneway", "chip_circuit_len", "chip_arena");
     }
 
     void CourseCard(Transform row, int course, string number, Color banner, string nameKey, string descKey, params string[] chipKeys)

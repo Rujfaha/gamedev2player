@@ -143,6 +143,7 @@ public class GameBootstrap : MonoBehaviour
             GraphicsFx.Apply(cfg, FollowCamera.Create(cars[i], new Rect(i * width, 0f, width, 1f)).GetComponent<Camera>());
 
         race.Init(cars, layout);
+        RaceMusic.Create(gameObject, race);
         gameObject.AddComponent<RaceHUD>().Init(race, layout);
         gameObject.AddComponent<PauseMenu>();
     }

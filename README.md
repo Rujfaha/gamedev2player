@@ -138,6 +138,11 @@ Active Input Handling is set to *Both*.
 - Scenery: portal rings, pylons, tumbling asteroids (`Spinner.cs`), ringed gas giant, moon, starfield sky + particle stars. Materials made by Rebuild Config (`BuildSpace`).
 - Keys during a race: 1 = Forest, 2 = Arena, 3 = Space.
 
+## One-way courses + music
+
+- No laps: every course is one long run (Forest ~2.4 km, Arena ~2 km, Nebula Ring ~2.5 km), routes are `Seg` lists in `TrackBuilder`.
+- Music: CC0 tracks by MintoDog in `Assets/_Audio/Music/Resources/Music` (`MenuMusic`, `<Scene>`, `<Scene>_Climax`). `RaceMusic.cs` cross-fades to the climax version for the last 20 % of the route. Volume = Settings > Music.
+
 ## Results leaderboard
 
 - When the race ends, `Leaderboard.cs` shows every racer ranked by score: car, finish place + time (or DNF), gem points, bonus, total.

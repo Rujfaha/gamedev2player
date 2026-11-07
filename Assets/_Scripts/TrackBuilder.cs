@@ -77,7 +77,31 @@ public static class TrackBuilder
         S(30), R(180, 18),                        // hairpin 5
         S(130), L(90, 30),
         S(40), L(70, 22), R(140, 20), L(70, 22),  // final S
+        // --- extension 2 (one long run, ~2.4 km): ridge, double hairpin, sweeper home ---
+        S(70), R(90, 30), S(80), L(120, 26), S(40), R(150, 22),
+        S(60), L(60, 40), R(60, 40), S(90), L(90, 30), S(70), R(180, 20),
+        S(80), L(90, 35),
         S(60),                                    // finish line at the end of this straight
+        S(RunOff),
+    };
+
+    // CPE Arena (one way, ~2 km): white arena road through a drift hairpin, S-bends, two more hairpins and fast sweepers.
+    static readonly Seg[] ArenaRoute =
+    {
+        S(120), R(90, 30), S(90), L(90, 25), S(60), R(180, 22),
+        S(110), L(60, 40), R(120, 30), L(60, 40), S(140), L(90, 25), S(70), L(90, 25), S(90),
+        R(180, 24), S(120), R(45, 40), L(90, 30), R(45, 40), S(130), R(90, 30), S(80), L(135, 26),
+        S(100), L(45, 30), R(90, 30), S(120),     // finish line at the end of this straight
+        S(RunOff),
+    };
+
+    // Nebula Ring (one way, ~2.5 km floating in space): long straights carry the jump gaps, sweepers and hairpins between.
+    static readonly Seg[] SpaceRoute =
+    {
+        S(100), R(90, 40), S(150), L(120, 35), S(60), R(180, 32), S(160), L(90, 45), R(60, 40), L(60, 40),
+        S(80), R(135, 35), S(170), L(90, 32), S(60), L(90, 32), S(130), R(70, 50), L(140, 32), R(70, 50),
+        S(170), R(90, 40), S(100), L(90, 35), S(150), R(160, 30),
+        S(120),                                   // finish line at the end of this straight
         S(RunOff),
     };
 
@@ -135,7 +159,7 @@ public static class TrackBuilder
 
     public static TrackLayout Build(GemDriftConfig cfg, Transform parent, TrackId id)
     {
-        bool loop = id != TrackId.Forest;
+        bool loop = false; // every course is one long run from start to finish (no laps)
         var style = id == TrackId.Forest
             ? new Style { width = 15f, road = cfg.dirtRoad, line = cfg.roadLine, ground = cfg.forestGround, wallA = cfg.woodA, wallB = cfg.woodB, wallHeight = 0.8f, forest = true }
             : id == TrackId.Space
@@ -145,7 +169,7 @@ public static class TrackBuilder
         var root = new GameObject("Generated_" + id).transform;
         root.SetParent(parent, false);
 
-        var pts = !loop ? SampleRoute(ForestRoute) : SampleLoop(id == TrackId.Space ? SpaceControl : CircuitControl);
+        var pts = SampleRoute(id == TrackId.Forest ? ForestRoute : id == TrackId.Space ? SpaceRoute : ArenaRoute);
         int n = pts.Count;
         var tangents = new Vector3[n];
         var rights = new Vector3[n];
@@ -170,12 +194,12 @@ public static class TrackBuilder
 
         var bounds = new Bounds(pts[0], Vector3.zero);
         foreach (var p in pts) bounds.Encapsulate(p);
-        var plan = style.space ? SpaceTrack.PlanFeatures(tangents) : null;
+        var plan = style.space ? SpaceTrack.PlanFeatures(tangents, loop) : null;
         var gap = plan != null ? plan.gap : new HashSet<int>();
         if (style.space)
         {
             // no ground: the road itself is the floor, with gaps after the jump ramps. Off the edge = fall into space.
-            SpaceTrack.RoadPieces(root, pts, rights, widths, gap, style.road);
+            SpaceTrack.RoadPieces(root, pts, rights, widths, gap, style.road, loop);
         }
         else
         {
@@ -229,7 +253,12 @@ public static class TrackBuilder
             }
         else
         {
-            for (int i = cpStride; i < finishIdx - cpStride / 2; i += cpStride) cpIndices.Add(i);
+            for (int i = cpStride; i < finishIdx - cpStride / 2; i += cpStride)
+            {
+                int safe = i; // never over (or right before) a jump gap
+                while (safe > 0 && SpaceTrack.NearGap(gap, safe, 6, n)) safe--;
+                if (cpIndices.Count == 0 || safe > cpIndices[cpIndices.Count - 1]) cpIndices.Add(safe);
+            }
             cpIndices.Add(finishIdx);
         }
         var cps = new List<Transform>();
