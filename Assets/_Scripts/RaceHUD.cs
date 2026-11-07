@@ -116,7 +116,7 @@ public class RaceHUD : MonoBehaviour
             case RaceManager.Phase.Countdown:
                 center.text = Mathf.CeilToInt(race.CountdownLeft).ToString();
                 centerSub.text = race.TrackName + (race.Loop ? "  ·  " + race.Laps + " LAPS" : "  ·  ONE WAY") +
-                                 "\nDrift to fill NITRO, double-tap Shift to fire      ·      1 = Forest   2 = Arena";
+                                 "\nDrift to fill NITRO, double-tap Shift to fire      ·      1 = Forest   2 = Arena   3 = Space";
                 break;
             case RaceManager.Phase.Racing:
                 center.text = Time.time - race.GoTime < 1f ? "GO!" : "";
@@ -170,7 +170,9 @@ public class RaceHUD : MonoBehaviour
         string msg = "";
         if (Time.time - car.Bed.LastSpillTime < 1.2f) msg = "-" + car.Bed.LastSpillCount + " GEM" + (car.Bed.LastSpillCount > 1 ? "S" : "");
         else if (Time.time - car.LastNitroTime < 1.2f) msg = car.LastNitroLevel == 2 ? "RED NITRO!!" : "BLUE NITRO!";
-        else if (car.Bed.Full && !r.finished) msg = "BED FULL";
+        else if (Time.time - car.LastJumpTime < 1.2f) msg = "JUMP!";
+        else if (Time.time - car.LastPadTime < 0.8f) msg = "BOOST!";
+        else if (car.Bed.Full && !r.finished) msg = "STORAGE FULL";
         ui.popup.text = race.State == RaceManager.Phase.Results ? "" : msg;
         ui.popup.color = msg.StartsWith("-") ? new Color(1f, 0.4f, 0.4f) : Color.white;
 

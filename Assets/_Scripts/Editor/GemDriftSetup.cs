@@ -15,6 +15,7 @@ public static class GemDriftSetup
     const string KitPath = "Assets/_Art/Kenney/RacingKit/";
     const string ForestScene = "Assets/Scenes/Forest.unity";
     const string MenuScene = "Assets/Scenes/Menu.unity";
+    const string SpaceScene = "Assets/Scenes/Space.unity";
     const string ConfigPath = "Assets/_Scripts/Resources/GemDriftConfig.asset";
     const string GenFolder = "Assets/_Scripts/Generated";
     const float TargetCarLength = 4.2f;
@@ -23,9 +24,10 @@ public static class GemDriftSetup
     {
         EditorApplication.delayCall += () =>
         {
+            if (EditorApplication.isPlayingOrWillChangePlaymode) return; // scenes can't be created in play mode; runs again after
             var existing = AssetDatabase.LoadAssetAtPath<GemDriftConfig>(ConfigPath);
             if (existing == null) { Rebuild(); return; }
-            if (!MenuIsFirstScene()) EnsureMenuScene();
+            if (!MenuIsFirstScene() || !File.Exists(SpaceScene) || EditorBuildSettings.scenes.Length < 4) EnsureMenuScene();
             if (existing.carsVersion != CarsVersion || existing.postResources == null) { BuildCars(existing); AssetDatabase.SaveAssets(); }
         };
     }
@@ -45,6 +47,9 @@ public static class GemDriftSetup
         EditorApplication.EnterPlaymode();
     }
 
+    [MenuItem("Gem Drift/Play Space %#i")]
+    public static void PlaySpace() => Play(SpaceScene);
+
     [MenuItem("Gem Drift/Play Menu %#m")]
     public static void PlayMenu() => Play(MenuScene);
 
@@ -54,7 +59,7 @@ public static class GemDriftSetup
         if (EditorApplication.isPlaying) { EditorApplication.ExitPlaymode(); return; }
         var opts = new BuildPlayerOptions
         {
-            scenes = new[] { MenuScene, ForestScene, "Assets/Scenes/Main.unity" }, // the menu is build index 0
+            scenes = new[] { MenuScene, SpaceScene, ForestScene, "Assets/Scenes/Main.unity" }, // the menu is build index 0
             locationPathName = "Builds/WebGL",
             target = BuildTarget.WebGL,
             options = BuildOptions.None,
@@ -132,7 +137,7 @@ public static class GemDriftSetup
 
     // ---------- Garage ----------
 
-    const int CarsVersion = 3;
+    const int CarsVersion = 6;
     const string CarKit = "Assets/_Art/Kenney/CarKit/";
 
     /// <summary>The garage roster: model, length, gem storage and handling of each car. Original names (no real brands).</summary>
@@ -165,6 +170,7 @@ public static class GemDriftSetup
             "Packages/com.unity.postprocessing/PostProcessing/PostProcessResources.asset");
         if (cfg.postResources == null) Debug.LogWarning("Gem Drift: PostProcessResources not found (is com.unity.postprocessing installed?)");
 
+        BuildSpace(cfg);
         var roster = Roster();
         var list = new List<CarSpec>();
         for (int i = 0; i < roster.Length; i++)
@@ -236,12 +242,242 @@ public static class GemDriftSetup
             UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, MenuScene);
             UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
         }
+        if (!File.Exists(SpaceScene))
+        {
+            // space: camera + light only; GameBootstrap builds the Nebula Ring and sets the starfield and lighting
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.DefaultGameObjects, UnityEditor.SceneManagement.NewSceneMode.Additive);
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, SpaceScene);
+            UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+        }
         EditorBuildSettings.scenes = new[]
         {
             new EditorBuildSettingsScene(MenuScene, true),
+            new EditorBuildSettingsScene(SpaceScene, true),
             new EditorBuildSettingsScene(ForestScene, true),
             new EditorBuildSettingsScene("Assets/Scenes/Main.unity", true),
         };
+    }
+
+    // ---------- Space course materials ----------
+
+    static void BuildSpace(GemDriftConfig cfg)
+    {
+        cfg.spaceRoad = Glowing(TexMat("SpaceRoad", Color.white, 0.62f, SpaceRoadTex, 0.6f), Color.white * 0.9f);
+        cfg.spaceWallA = Glowing(TexMat("SpaceWallA", new Color(0.22f, 0.25f, 0.34f), 0.8f, PanelTex, 1.2f, "Panel"), new Color(0f, 0.28f, 0.45f));
+        cfg.spaceWallB = Glowing(TexMat("SpaceWallB", new Color(0.3f, 0.22f, 0.34f), 0.8f, PanelTex, 1.2f, "Panel"), new Color(0.42f, 0.04f, 0.36f));
+        cfg.boostPad = Glowing(TexMat("BoostPad", Color.white, 0.9f, BoostTex, 0.3f), Color.white * 1.4f);
+        cfg.jumpPad = Glowing(TexMat("JumpPad", Color.white, 0.75f, JumpTex, 0.6f), Color.white * 1.1f);
+        cfg.ringCyan = Mat("RingCyan", new Color(0.2f, 0.85f, 1f), 0.9f, 0f, new Color(0.25f, 1.6f, 2.6f));
+        cfg.ringMagenta = Mat("RingMagenta", new Color(1f, 0.3f, 0.9f), 0.9f, 0f, new Color(2.2f, 0.35f, 1.9f));
+        cfg.pylon = Mat("Pylon", new Color(0.13f, 0.14f, 0.19f), 0.7f, 0.6f);
+        cfg.asteroid = TexMat("Asteroid", new Color(0.62f, 0.58f, 0.56f), 0.12f, RockTex, 1.6f);
+        cfg.asteroid.enableInstancing = true;
+        cfg.moon = TexMat("Moon", new Color(0.8f, 0.82f, 0.9f), 0.05f, RockTex, 1.2f, "Asteroid");
+        cfg.planet = Mat("Planet", Color.white, 0.2f);
+        cfg.planet.mainTexture = SaveTex(PlanetTexture(), "Planet_Albedo");
+        cfg.planetRing = RingMat();
+        cfg.skySpace = SpaceSky();
+        foreach (var m in new[] { cfg.planet, cfg.asteroid, cfg.moon }) EditorUtility.SetDirty(m);
+    }
+
+    static Material Glowing(Material m, Color emission)
+    {
+        m.EnableKeyword("_EMISSION");
+        m.SetTexture("_EmissionMap", m.mainTexture);
+        m.SetColor("_EmissionColor", emission);
+        m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // dark metal deck: cyan edge lines, faint purple seams across, magenta centre dashes (they glow through the emission map)
+    static (Color, float) SpaceRoadTex(float u, float v, float n, float g)
+    {
+        float edge = Mathf.Min(u, 1f - u);
+        if (edge < 0.025f) return (new Color(0.25f, 0.9f, 1f), 0.6f);
+        if (edge < 0.045f) return (new Color(0.02f, 0.03f, 0.05f), 0.2f);
+        float seam = Mathf.Abs(Mathf.Repeat(v * 4f, 1f) - 0.5f);
+        float shade = 0.07f + 0.035f * n + (g - 0.5f) * 0.02f;
+        var c = new Color(shade, shade * 1.05f, shade * 1.35f);
+        float h = 0.5f + n * 0.1f;
+        if (seam > 0.485f) { c = new Color(0.22f, 0.12f, 0.45f); h = 0.3f; }
+        if (Mathf.Abs(u - 0.5f) < 0.008f && Mathf.Repeat(v * 2f, 1f) < 0.5f) c = new Color(0.95f, 0.25f, 0.85f);
+        float lane = Mathf.Min(Mathf.Abs(u - 0.25f), Mathf.Abs(u - 0.75f));
+        if (lane < 0.003f && Mathf.Repeat(v * 4f, 1f) < 0.3f) c = new Color(0.3f, 0.35f, 0.5f);
+        return (c, h);
+    }
+
+    // three chevrons pointing along the road (+v), cyan to white
+    static (Color, float) BoostTex(float u, float v, float n, float g)
+    {
+        float x = Mathf.Abs(u - 0.5f) * 2f;
+        float cv = Mathf.Repeat(v * 3f - x * 0.9f, 1f);
+        bool chevron = cv > 0.45f && cv < 0.8f && x < 0.85f;
+        float border = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v));
+        if (border < 0.03f) return (new Color(0.2f, 0.7f, 1f), 0.8f);
+        if (chevron) return (Color.Lerp(new Color(0.1f, 0.65f, 1f), new Color(0.85f, 1f, 1f), cv - 0.45f), 0.9f);
+        return (new Color(0.02f, 0.06f, 0.12f), 0.3f);
+    }
+
+    // yellow / black warning stripes with orange chevrons
+    static (Color, float) JumpTex(float u, float v, float n, float g)
+    {
+        float edge = Mathf.Min(u, 1f - u);
+        if (edge < 0.08f) return (Mathf.Repeat((u + v) * 8f, 1f) < 0.5f ? new Color(1f, 0.8f, 0.05f) : new Color(0.03f, 0.03f, 0.03f), 0.7f);
+        float x = Mathf.Abs(u - 0.5f) * 2f;
+        float cv = Mathf.Repeat(v * 2.5f - x * 0.8f, 1f);
+        if (cv > 0.5f && cv < 0.8f) return (new Color(1f, 0.45f, 0.08f), 0.9f);
+        return (new Color(0.08f, 0.07f, 0.06f), 0.4f);
+    }
+
+    static (Color, float) RockTex(float u, float v, float n, float g)
+    {
+        float crater = ValueNoise(u, v, 12, 33);
+        float shade = 0.45f + 0.4f * n - (crater > 0.72f ? (crater - 0.72f) * 1.5f : 0f);
+        return (new Color(shade, shade * 0.97f, shade * 0.94f), n * 0.8f - (crater > 0.72f ? 0.4f : 0f) + g * 0.2f);
+    }
+
+    // gas giant: latitude bands, warped by noise (equirectangular, for the sphere's UVs)
+    static Texture2D PlanetTexture()
+    {
+        const int W = 512, H = 256;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, true) { wrapMode = TextureWrapMode.Repeat, anisoLevel = 2 };
+        var cols = new Color[W * H];
+        Color[] bands = { new Color(0.95f, 0.78f, 0.55f), new Color(0.75f, 0.45f, 0.3f), new Color(0.98f, 0.9f, 0.75f), new Color(0.55f, 0.32f, 0.35f), new Color(0.85f, 0.6f, 0.4f) };
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+            {
+                float u = (float)x / W, v = (float)y / H;
+                float warp = Fbm(u, v, 6, 51) - 0.5f;
+                float b = (v + warp * 0.08f) * 14f;
+                int i0 = Mathf.FloorToInt(b);
+                var c = Color.Lerp(bands[((i0 % 5) + 5) % 5], bands[(((i0 + 1) % 5) + 5) % 5], Mathf.SmoothStep(0f, 1f, b - i0));
+                cols[y * W + x] = c * (0.9f + 0.15f * Fbm(u, v, 16, 52));
+            }
+        tex.SetPixels(cols);
+        tex.Apply(true);
+        return tex;
+    }
+
+    // planet ring: transparent banded annulus (u = radius)
+    static Material RingMat()
+    {
+        const int W = 256;
+        var tex = new Texture2D(W, 4, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp };
+        var cols = new Color[W * 4];
+        for (int x = 0; x < W; x++)
+        {
+            float u = (float)x / W;
+            float a = Mathf.Clamp01(0.25f + 0.6f * ValueNoise(u, 0.5f, 40, 61)) * Mathf.SmoothStep(0f, 0.08f, u) * Mathf.SmoothStep(1f, 0.9f, u);
+            if (u > 0.55f && u < 0.6f) a *= 0.15f; // a gap in the ring
+            var c = Color.Lerp(new Color(0.9f, 0.8f, 0.7f), new Color(0.65f, 0.55f, 0.6f), ValueNoise(u, 0.2f, 20, 62));
+            for (int y = 0; y < 4; y++) cols[y * W + x] = new Color(c.r, c.g, c.b, a);
+        }
+        tex.SetPixels(cols);
+        tex.Apply(true);
+        var m = Mat("PlanetRing", Color.white, 0.1f);
+        m.mainTexture = SaveTex(tex, "PlanetRing_Albedo");
+        m.SetFloat("_Mode", 2f); // Fade
+        m.SetOverrideTag("RenderType", "Transparent");
+        m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetInt("_ZWrite", 0);
+        m.DisableKeyword("_ALPHATEST_ON");
+        m.EnableKeyword("_ALPHABLEND_ON");
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        m.renderQueue = 3000;
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // starfield + nebula, equirectangular, seamless (noise is sampled on the view direction, not on the image)
+    static Material SpaceSky()
+    {
+        const int W = 2048, H = 1024;
+        string pngPath = GenFolder + "/SpaceSky.png";
+        var cols = new Color[W * H];
+        for (int y = 0; y < H; y++)
+        {
+            float lat = ((y + 0.5f) / H - 0.5f) * Mathf.PI;
+            for (int x = 0; x < W; x++)
+            {
+                float lon = ((x + 0.5f) / W) * Mathf.PI * 2f;
+                var d = new Vector3(Mathf.Cos(lat) * Mathf.Sin(lon), Mathf.Sin(lat), Mathf.Cos(lat) * Mathf.Cos(lon));
+                float n1 = Fbm3(d * 2.2f, 71), n2 = Fbm3(d * 3.5f + Vector3.one * 7f, 72), n3 = Fbm3(d * 6f, 73);
+                float cloud = Mathf.SmoothStep(0.45f, 0.8f, n1);
+                var c = new Color(0.006f, 0.008f, 0.022f);
+                c += new Color(0.32f, 0.08f, 0.45f) * cloud * 0.55f;                                   // purple nebula
+                c += new Color(0.05f, 0.25f, 0.5f) * Mathf.SmoothStep(0.5f, 0.85f, n2) * 0.5f;         // blue nebula
+                c += new Color(0.9f, 0.35f, 0.4f) * Mathf.SmoothStep(0.7f, 0.95f, n1 * n3 * 1.6f) * 0.35f; // hot pink cores
+                cols[y * W + x] = c;
+            }
+        }
+        // stars: many faint pixels, a few bright ones with a soft halo
+        var rng = new System.Random(4242);
+        for (int i = 0; i < 14000; i++)
+        {
+            float z = (float)rng.NextDouble() * 2f - 1f, lon = (float)rng.NextDouble() * Mathf.PI * 2f;
+            int x = Mathf.Clamp((int)(lon / (Mathf.PI * 2f) * W), 0, W - 1);
+            int y = Mathf.Clamp((int)((Mathf.Asin(z) / Mathf.PI + 0.5f) * H), 0, H - 1);
+            float b = Mathf.Pow((float)rng.NextDouble(), 4f) * 0.7f + 0.08f; // faint: the bright stars are particles (SpaceTrack)
+            var tint = Color.Lerp(new Color(0.75f, 0.85f, 1f), new Color(1f, 0.9f, 0.75f), (float)rng.NextDouble());
+            int r = b > 2.2f ? 1 : 0;
+            for (int dy = -r; dy <= r; dy++)
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    float fall = r == 0 ? 1f : Mathf.Exp(-(dx * dx + dy * dy) / (0.35f * r * r + 0.3f));
+                    int px = (x + dx + W) % W, py = Mathf.Clamp(y + dy, 0, H - 1);
+                    cols[py * W + px] += tint * b * fall;
+                }
+        }
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        for (int i = 0; i < cols.Length; i++) cols[i] = new Color(Mathf.Clamp01(cols[i].r), Mathf.Clamp01(cols[i].g), Mathf.Clamp01(cols[i].b));
+        tex.SetPixels(cols);
+        tex.Apply(false);
+        File.WriteAllBytes(pngPath, tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
+        AssetDatabase.ImportAsset(pngPath);
+        if (AssetImporter.GetAtPath(pngPath) is TextureImporter ti)
+        {
+            ti.mipmapEnabled = false;
+            ti.wrapModeU = TextureWrapMode.Repeat;
+            ti.wrapModeV = TextureWrapMode.Clamp;
+            ti.maxTextureSize = 2048;
+            ti.textureCompression = TextureImporterCompression.CompressedHQ;
+            ti.SaveAndReimport();
+        }
+        string path = GenFolder + "/SkySpace.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null)
+        {
+            m = new Material(Shader.Find("Skybox/Panoramic"));
+            AssetDatabase.CreateAsset(m, path);
+        }
+        m.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(pngPath));
+        m.SetFloat("_Mapping", 1f);   // latitude-longitude layout
+        m.SetFloat("_ImageType", 0f); // 360 degrees
+        m.SetFloat("_Exposure", 1.1f);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    static float Noise3(Vector3 p, int seed)
+    {
+        int ix = Mathf.FloorToInt(p.x), iy = Mathf.FloorToInt(p.y), iz = Mathf.FloorToInt(p.z);
+        float fx = p.x - ix, fy = p.y - iy, fz = p.z - iz;
+        fx = fx * fx * (3f - 2f * fx); fy = fy * fy * (3f - 2f * fy); fz = fz * fz * (3f - 2f * fz);
+        float H(int a, int b, int c) => Hash(a + c * 7919, b - c * 104729, seed) / (float)int.MaxValue;
+        float x00 = Mathf.Lerp(H(ix, iy, iz), H(ix + 1, iy, iz), fx), x10 = Mathf.Lerp(H(ix, iy + 1, iz), H(ix + 1, iy + 1, iz), fx);
+        float x01 = Mathf.Lerp(H(ix, iy, iz + 1), H(ix + 1, iy, iz + 1), fx), x11 = Mathf.Lerp(H(ix, iy + 1, iz + 1), H(ix + 1, iy + 1, iz + 1), fx);
+        return Mathf.Lerp(Mathf.Lerp(x00, x10, fy), Mathf.Lerp(x01, x11, fy), fz);
+    }
+
+    static float Fbm3(Vector3 p, int seed)
+    {
+        float sum = 0f, amp = 0.5f, norm = 0f;
+        for (int o = 0; o < 5; o++, p *= 2.03f, amp *= 0.5f) { sum += Noise3(p, seed + o) * amp; norm += amp; }
+        return sum / norm;
     }
 
     /// <summary>Finds which way the model faces, scales it to targetLength, puts its wheels on y = 0 and finds the gem floor:

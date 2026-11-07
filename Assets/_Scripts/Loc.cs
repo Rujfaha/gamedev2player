@@ -32,6 +32,8 @@ public static class Loc
         { "color_red", "Red" }, { "color_blue", "Blue" }, { "color_yellow", "Yellow" }, { "color_green", "Green" }, { "color_purple", "Purple" }, { "color_orange", "Orange" },
         // map select
         { "map_title", "SELECT COURSE" },
+        { "course_space", "NEBULA RING" }, { "course_space_desc", "Neon road floating in space: boost pads, jump gaps, asteroids." },
+        { "chip_space_len", "~1.3 KM LAP" }, { "chip_space", "SPACE" },
         { "course_forest", "FOREST SWITCHBACK" }, { "course_forest_desc", "Dirt road, hairpins and a slalom shortcut. One way through the forest." },
         { "course_circuit", "CPE ARENA CIRCUIT" }, { "course_circuit_desc", "White robot-arena road with a drift hairpin and fast sweepers." },
         { "chip_oneway", "ONE WAY" }, { "chip_forest_len", "~1.5 KM" }, { "chip_dirt", "DIRT" },
@@ -74,6 +76,8 @@ public static class Loc
         { "car_class_hatch", "ฮอตแฮทช์" }, { "car_class_truck", "รถกระบะขนเพชร" }, { "player_n", "ผู้เล่น {0}" }, { "ready", "พร้อม" }, { "ready_on", "พร้อมแล้ว!" },
         { "color_red", "แดง" }, { "color_blue", "น้ำเงิน" }, { "color_yellow", "เหลือง" }, { "color_green", "เขียว" }, { "color_purple", "ม่วง" }, { "color_orange", "ส้ม" },
         { "map_title", "เลือกสนาม" },
+        { "course_space", "เนบิวลา ริง" }, { "course_space_desc", "ถนนนีออนลอยกลางอวกาศ มีแผ่นบูสต์ ทางกระโดด อุกกาบาต" },
+        { "chip_space_len", "รอบละ ~1.3 กม." }, { "chip_space", "อวกาศ" },
         { "course_forest", "ฟอเรสต์ สวิตช์แบ็ก" }, { "course_forest_desc", "ถนนดิน โค้งหักศอก และทางลัดสลาลม วิ่งทางเดียวผ่านป่า" },
         { "course_circuit", "ซีพีอี อารีนา เซอร์กิต" }, { "course_circuit_desc", "ถนนสีขาวสไตล์สนามหุ่นยนต์ มีโค้งหักศอกให้ดริฟต์และโค้งกว้างความเร็วสูง" },
         { "chip_oneway", "ทางเดียว" }, { "chip_forest_len", "~1.5 กม." }, { "chip_dirt", "ถนนดิน" },

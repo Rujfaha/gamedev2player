@@ -129,3 +129,11 @@ Active Input Handling is set to *Both*.
 - Graphics: linear colour space, Post Processing Stack v2 (bloom, colour grading, vignette, AO on Very High+), SMAA, longer shadows,
   reflection probe for glossy paint (`GraphicsFx.cs`). WebGL defaults to the Very High quality level.
 - Changing the roster: edit `Roster()`, bump `CarsVersion`; the config rebuilds the cars on the next editor load.
+
+## Nebula Ring (space course)
+
+- Scene `Space` (course 2, first card on the course screen, also the menu background). Built by `TrackBuilder` (`TrackId.Space`) + `SpaceTrack.cs`.
+- Floating neon road with mesh colliders and no ground: drive off the edge = fall into space and respawn at the last checkpoint.
+- Boost pads (`BoostPad.cs`): free short boost. Jump ramps (`JumpPad.cs`) in front of 14 m gaps on the long straights; the ramp sets a minimum speed so every car clears the gap.
+- Scenery: portal rings, pylons, tumbling asteroids (`Spinner.cs`), ringed gas giant, moon, starfield sky + particle stars. Materials made by Rebuild Config (`BuildSpace`).
+- Keys during a race: 1 = Forest, 2 = Arena, 3 = Space.

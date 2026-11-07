@@ -322,6 +322,29 @@ public class CarController : MonoBehaviour
         PreImpactVelocity = rb.linearVelocity; // collisions resolve after FixedUpdate, so this is the pre-hit velocity
     }
 
+    public float LastPadTime { get; private set; } = -99f;
+    public float LastJumpTime { get; private set; } = -99f;
+
+    /// <summary>Boost pad on the road: a free blue-level boost (the nitro tank is not touched).</summary>
+    public void PadBoost(float seconds = 1.2f)
+    {
+        if (!CanDrive) return;
+        if (ActiveNitroLevel < 2) nitroLevel = 1;
+        nitroTimer = Mathf.Max(nitroTimer, seconds);
+        if (Time.time - LastPadTime > 0.5f) rb.linearVelocity += transform.forward * 4f;
+        LastPadTime = Time.time;
+    }
+
+    /// <summary>Jump ramp: throws the car up with at least minForward m/s along its nose, so it clears the gap after the ramp.</summary>
+    public void Launch(float upSpeed, float minForward)
+    {
+        if (Time.time - LastJumpTime < 0.6f) return;
+        float fwd = Mathf.Max(Vector3.Dot(rb.linearVelocity, transform.forward), minForward);
+        rb.linearVelocity = transform.forward * fwd + Vector3.up * upSpeed;
+        drifting = false;
+        LastJumpTime = Time.time;
+    }
+
     /// <summary>Fires RED nitro with a full tank, else BLUE with at least half. Players double-tap; CarAI calls this.</summary>
     public bool TryFireNitro()
     {

@@ -45,6 +45,11 @@ public class GemDriftConfig : ScriptableObject
     public GameObject[] treeModels;   // [0] large, [1] small (Kenney Racing Kit)
     public GameObject finishArch;     // Kenney overhead arch over the finish line
 
+    [Header("Space course (Nebula Ring)")]
+    public Material spaceRoad, spaceWallA, spaceWallB, boostPad, jumpPad;
+    public Material ringCyan, ringMagenta, pylon, asteroid, planet, planetRing, moon;
+    public Material skySpace;
+
     [Header("Scenery (TrackDecor)")]
     public string[] decorNames;       // looked up by name, e.g. "grandStand", "cone"
     public GameObject[] decorModels;

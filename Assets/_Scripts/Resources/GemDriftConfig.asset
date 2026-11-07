@@ -110,7 +110,7 @@ MonoBehaviour:
     weight: 1.4
     gloss: 0.6
     metal: 0.25
-  carsVersion: 3
+  carsVersion: 6
   postResources: {fileID: 11400000, guid: d82512f9c8e5d4a4d938b575d47f88d4, type: 2}
   playerTints:
   - {r: 1, g: 0.35, b: 0.3, a: 1}
@@ -149,6 +149,19 @@ MonoBehaviour:
   - {fileID: 919132149155446097, guid: 92524f331ac874a02b94297272626118, type: 3}
   - {fileID: 919132149155446097, guid: 71f086c9f90634242ac9ab07f58c5703, type: 3}
   finishArch: {fileID: 919132149155446097, guid: ce3c82d8eb3a043a895b1b8830842735, type: 3}
+  spaceRoad: {fileID: 2100000, guid: 94857f06496314628bac310c4a95ea5e, type: 2}
+  spaceWallA: {fileID: 2100000, guid: 957ae0d26783647d3b74408bf9ce3bf9, type: 2}
+  spaceWallB: {fileID: 2100000, guid: b913a1f72f2cd4dd3b2faa8863958c85, type: 2}
+  boostPad: {fileID: 2100000, guid: d019cf7842ba845f7a7d36b14b341504, type: 2}
+  jumpPad: {fileID: 2100000, guid: 7c86f58cf905c40c79937c1f721887b4, type: 2}
+  ringCyan: {fileID: 2100000, guid: 1f25f2793bd2e416cae0f7dfbcf2e576, type: 2}
+  ringMagenta: {fileID: 2100000, guid: 015ecee560361485bb9de44978bb997c, type: 2}
+  pylon: {fileID: 2100000, guid: d0716c138db5643c2bb6e81fea6d3ae3, type: 2}
+  asteroid: {fileID: 2100000, guid: eb0ae7b1129db4c95b4602b1d02473be, type: 2}
+  planet: {fileID: 2100000, guid: c8c892a1d900042c48ba5e8d9296b919, type: 2}
+  planetRing: {fileID: 2100000, guid: 410c0ec5b261447608c4178eb1be2926, type: 2}
+  moon: {fileID: 2100000, guid: 420986e3a2a8748929c3feb57a412db3, type: 2}
+  skySpace: {fileID: 2100000, guid: 760f36ac16c65474f90d8a34a9072494, type: 2}
   decorNames:
   - bannerTowerRed
   - bannerTowerGreen

@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>Which built-in course to generate.</summary>
-public enum TrackId { Circuit, Forest }
+public enum TrackId { Circuit, Forest, Space }
 
 /// <summary>Where the race happens: checkpoints (in order), start poses, gem spots, laps.</summary>
 public class TrackLayout
@@ -29,7 +29,8 @@ public class TrackLayout
 /// </summary>
 public static class TrackBuilder
 {
-    const float SampleSpacing = 2f, CheckpointSpacing = 30f, GemSpacing = 24f, RunOff = 30f;
+    public const float SampleSpacing = 2f;
+    const float CheckpointSpacing = 30f, GemSpacing = 24f, RunOff = 30f;
     // The start area is widened so 5 trucks fit side by side, then tapers back to the normal width.
     const float GridWidth = 21f, GridLaneSpacing = 3.6f, WideZone = 30f, TaperZone = 35f;
     // Forest shortcut: a narrow dirt cut across the gap of hairpin 1, from 66 m on the first straight to
@@ -47,6 +48,15 @@ public static class TrackBuilder
         new Vector2(200, 125), new Vector2(155, 140), new Vector2(115, 120), new Vector2(90, 140), new Vector2(85, 180),
         new Vector2(55, 208), new Vector2(5, 210), new Vector2(-35, 185), new Vector2(-80, 205), new Vector2(-130, 190),
         new Vector2(-160, 145), new Vector2(-150, 95), new Vector2(-115, 60), new Vector2(-105, 20), new Vector2(-65, -5),
+    };
+
+    // Space (Nebula Ring): ~1.3 km loop floating in space. Two long straights carry the jump gaps, the rest is sweepers and an S.
+    static readonly Vector2[] SpaceControl =
+    {
+        new Vector2(0, 0), new Vector2(80, 0), new Vector2(160, 0), new Vector2(220, 0), new Vector2(265, 30), new Vector2(270, 85),
+        new Vector2(235, 115), new Vector2(185, 110), new Vector2(140, 90), new Vector2(95, 100), new Vector2(70, 140), new Vector2(80, 190),
+        new Vector2(60, 235), new Vector2(0, 250), new Vector2(-70, 250), new Vector2(-140, 250), new Vector2(-195, 230), new Vector2(-220, 180),
+        new Vector2(-200, 125), new Vector2(-150, 100), new Vector2(-120, 60), new Vector2(-90, 15), new Vector2(-45, 0),
     };
 
     // Forest: driven piece by piece from (0,0) heading north. R/L = right/left turn (degrees, radius).
@@ -81,7 +91,7 @@ public static class TrackBuilder
         public float width;
         public Material road, line, ground, wallA, wallB;
         public float wallHeight;
-        public bool forest;
+        public bool forest, space;
     }
 
     // ---------- Hand-built track from the scene ----------
@@ -125,15 +135,17 @@ public static class TrackBuilder
 
     public static TrackLayout Build(GemDriftConfig cfg, Transform parent, TrackId id)
     {
-        bool loop = id == TrackId.Circuit;
+        bool loop = id != TrackId.Forest;
         var style = id == TrackId.Forest
             ? new Style { width = 15f, road = cfg.dirtRoad, line = cfg.roadLine, ground = cfg.forestGround, wallA = cfg.woodA, wallB = cfg.woodB, wallHeight = 0.8f, forest = true }
+            : id == TrackId.Space
+            ? new Style { width = 16f, road = cfg.spaceRoad, line = cfg.roadLine, wallA = cfg.spaceWallA, wallB = cfg.spaceWallB, wallHeight = 0.9f, space = true }
             : new Style { width = 16f, road = cfg.road, line = cfg.roadLine, ground = cfg.ground, wallA = cfg.wallA, wallB = cfg.wallB, wallHeight = 1.1f };
 
         var root = new GameObject("Generated_" + id).transform;
         root.SetParent(parent, false);
 
-        var pts = loop ? SampleLoop(CircuitControl) : SampleRoute(ForestRoute);
+        var pts = !loop ? SampleRoute(ForestRoute) : SampleLoop(id == TrackId.Space ? SpaceControl : CircuitControl);
         int n = pts.Count;
         var tangents = new Vector3[n];
         var rights = new Vector3[n];
@@ -156,9 +168,18 @@ public static class TrackBuilder
             widths[i] = Mathf.Lerp(Mathf.Max(GridWidth, style.width), style.width, t * t * (3f - 2f * t));
         }
 
-        // Ground: one big flat collider at y = 0 is the only driving surface
         var bounds = new Bounds(pts[0], Vector3.zero);
         foreach (var p in pts) bounds.Encapsulate(p);
+        var plan = style.space ? SpaceTrack.PlanFeatures(tangents) : null;
+        var gap = plan != null ? plan.gap : new HashSet<int>();
+        if (style.space)
+        {
+            // no ground: the road itself is the floor, with gaps after the jump ramps. Off the edge = fall into space.
+            SpaceTrack.RoadPieces(root, pts, rights, widths, gap, style.road);
+        }
+        else
+        {
+        // Ground: one big flat collider at y = 0 is the only driving surface
         var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
         ground.name = "Ground";
         ground.layer = Layers.Road;
@@ -173,6 +194,7 @@ public static class TrackBuilder
         var stripe = new float[n];
         for (int i = 0; i < n; i++) stripe[i] = 0.6f;
         Strip(root, "LineTracingStripe", pts, rights, stripe, 0.035f, style.line, loop);
+        }
         var layoutShortcuts = new List<List<Vector3>>();
         // shortcut gates: wall gaps where a shortcut joins the road
         var gates = new List<Vector3>();
@@ -181,22 +203,30 @@ public static class TrackBuilder
             foreach (var sc in ForestShortcuts)
                 BuildShortcut(root, cfg, style, pts, rights, widths,
                               Mathf.RoundToInt(sc.x / SampleSpacing), Mathf.RoundToInt(sc.y / SampleSpacing), gates, shortcutPts, layoutShortcuts);
-        BuildWalls(root, pts, rights, tangents, widths, style, loop, gates);
+        BuildWalls(root, pts, rights, tangents, widths, style, loop, gates, gap);
 
         int finishIdx = loop ? 0 : Mathf.Clamp(Mathf.RoundToInt((total - RunOff) / SampleSpacing), 0, n - 1);
         FinishLine(root, cfg, pts[finishIdx], tangents[finishIdx], widths[finishIdx]);
-        TrackDecor.Dress(cfg, root, pts, rights, tangents, widths, loop, style.forest, finishIdx, shortcutPts);
+        if (style.space) SpaceTrack.Dress(cfg, root, pts, rights, tangents, widths, plan, bounds);
+        else TrackDecor.Dress(cfg, root, pts, rights, tangents, widths, loop, style.forest, finishIdx, shortcutPts);
 
         var layout = new TrackLayout
         {
             loop = loop, laps = loop ? 3 : 1, path = pts, roadWidth = style.width,
-            name = id == TrackId.Forest ? "FOREST SWITCHBACK" : "CPE ARENA CIRCUIT",
+            name = id == TrackId.Forest ? "FOREST SWITCHBACK" : id == TrackId.Space ? "NEBULA RING" : "CPE ARENA CIRCUIT",
         };
 
         // Checkpoints every ~30 m. Loop: CP_00 = finish line at sample 0. Point-to-point: last CP = finish line.
         int cpStride = Mathf.RoundToInt(CheckpointSpacing / SampleSpacing);
         var cpIndices = new List<int>();
-        if (loop) for (int i = 0; i < n - cpStride / 2; i += cpStride) cpIndices.Add(i);
+        if (loop)
+            for (int i = 0; i < n - cpStride / 2; i += cpStride)
+            {
+                // never over (or right before) a jump gap: a respawn there would drop the car into space
+                int safe = i;
+                while (safe > 0 && SpaceTrack.NearGap(gap, safe, 6, n)) safe--;
+                if (cpIndices.Count == 0 || safe > cpIndices[cpIndices.Count - 1]) cpIndices.Add(safe);
+            }
         else
         {
             for (int i = cpStride; i < finishIdx - cpStride / 2; i += cpStride) cpIndices.Add(i);
@@ -234,6 +264,7 @@ public static class TrackBuilder
         float laneOff = style.width * 0.25f, apexOff = style.width * 0.32f;
         for (int i = Mathf.RoundToInt(30f / SampleSpacing); i < lastGem; i += gemStride)
         {
+            if (SpaceTrack.NearGap(gap, i, 8, n)) continue;
             var tPrev = tangents[loop ? (i - look + n) % n : Mathf.Max(i - look, 0)];
             var tNext = tangents[loop ? (i + look) % n : Mathf.Min(i + look, n - 1)];
             float turnDeg = Vector3.Angle(tPrev, tNext);
@@ -322,7 +353,7 @@ public static class TrackBuilder
 
     // ---------- Meshes ----------
 
-    static void Strip(Transform parent, string name, List<Vector3> pts, Vector3[] rights, float[] widths, float y, Material mat, bool loop)
+    internal static GameObject Strip(Transform parent, string name, List<Vector3> pts, Vector3[] rights, float[] widths, float y, Material mat, bool loop)
     {
         int n = pts.Count;
         int rows = loop ? n + 1 : n;
@@ -354,10 +385,11 @@ public static class TrackBuilder
         go.transform.SetParent(parent, false);
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
         go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        return go;
     }
 
     // Box colliders along both edges (+ end caps on a one-way route); visuals merged into two meshes
-    static void BuildWalls(Transform parent, List<Vector3> pts, Vector3[] rights, Vector3[] tangents, float[] widths, Style style, bool loop, List<Vector3> gates)
+    static void BuildWalls(Transform parent, List<Vector3> pts, Vector3[] rights, Vector3[] tangents, float[] widths, Style style, bool loop, List<Vector3> gates, HashSet<int> skip)
     {
         var temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
         var cube = temp.GetComponent<MeshFilter>().sharedMesh;
@@ -390,6 +422,7 @@ public static class TrackBuilder
                 var a = pts[i] + rights[i] * Offset(i) * side;
                 var b = pts[j] + rights[j] * Offset(j) * side;
                 if (InGate((a + b) * 0.5f, gates)) continue; // opening for a shortcut
+                if (skip.Contains(i) || skip.Contains(j)) continue; // jump gap
                 Piece((a + b) * 0.5f + Vector3.up * height * 0.5f, Quaternion.LookRotation(b - a),
                       new Vector3(thick, height, Vector3.Distance(a, b) + 0.3f), (i / 3) % 2 == 0);
             }

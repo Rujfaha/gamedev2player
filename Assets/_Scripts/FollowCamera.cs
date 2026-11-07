@@ -17,7 +17,7 @@ public class FollowCamera : MonoBehaviour
         cam.rect = viewport;
         cam.fieldOfView = 62f;
         cam.nearClipPlane = 0.3f;
-        cam.farClipPlane = 1500f;
+        cam.farClipPlane = 2200f;
         if (car.PlayerIndex == 0) go.AddComponent<AudioListener>();
 
         var f = go.AddComponent<FollowCamera>();

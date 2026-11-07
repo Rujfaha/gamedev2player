@@ -34,7 +34,7 @@ public static class GraphicsFx
         }
         RenderSettings.reflectionIntensity = 0.85f;
         // linear lighting makes the procedural sky's horizon band yellow: thinner atmosphere keeps it blue
-        if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_AtmosphereThickness"))
+        if (RenderSettings.skybox != null && RenderSettings.skybox.HasProperty("_AtmosphereThickness") && RenderSettings.skybox.HasProperty("_SkyTint"))
         {
             var sky = new Material(RenderSettings.skybox);
             sky.SetFloat("_AtmosphereThickness", 0.7f);

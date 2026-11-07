@@ -14,7 +14,7 @@ public class MenuCamera : MonoBehaviour
         var cam = go.AddComponent<Camera>();
         cam.fieldOfView = 60f;
         cam.nearClipPlane = 0.3f;
-        cam.farClipPlane = 1500f;
+        cam.farClipPlane = 2200f;
         go.AddComponent<AudioListener>();
         var m = go.AddComponent<MenuCamera>();
         m.target = target;

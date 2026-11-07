@@ -641,19 +641,20 @@ public class MainMenu : MonoBehaviour
         row.anchorMin = row.anchorMax = new Vector2(0.5f, 0.44f);
         row.pivot = new Vector2(0.5f, 0.5f);
         MenuUI.FitToContent(row, true);
-        CourseCard(row, 0, "01", new Color(0.17f, 0.52f, 0.34f), "course_forest", "course_forest_desc", "chip_oneway", "chip_forest_len", "chip_dirt");
-        CourseCard(row, 1, "02", new Color(0.26f, 0.44f, 0.88f), "course_circuit", "course_circuit_desc", "chip_laps", "chip_circuit_len", "chip_arena");
+        CourseCard(row, 2, "01", new Color(0.36f, 0.16f, 0.62f), "course_space", "course_space_desc", "chip_laps", "chip_space_len", "chip_space");
+        CourseCard(row, 0, "02", new Color(0.17f, 0.52f, 0.34f), "course_forest", "course_forest_desc", "chip_oneway", "chip_forest_len", "chip_dirt");
+        CourseCard(row, 1, "03", new Color(0.26f, 0.44f, 0.88f), "course_circuit", "course_circuit_desc", "chip_laps", "chip_circuit_len", "chip_arena");
     }
 
     void CourseCard(Transform row, int course, string number, Color banner, string nameKey, string descKey, params string[] chipKeys)
     {
-        var b = MenuUI.MakeCard(row, 540f, 560f, () => StartRace(course), out var body);
+        var b = MenuUI.MakeCard(row, 500f, 560f, () => StartRace(course), out var body);
         items.Add(b);
         var art = new GameObject("Banner", typeof(RectTransform));
         art.transform.SetParent(body, false);
         MenuUI.Plate((RectTransform)art.transform, banner);
         var artSize = art.AddComponent<LayoutElement>();
-        artSize.preferredWidth = 492f;
+        artSize.preferredWidth = 452f;
         artSize.preferredHeight = 220f;
         var shade = MenuUI.Stretch(art.transform, "Shade", Vector2.zero, Vector2.one);
         MenuUI.Gradient(shade, new Color(0f, 0f, 0f, 0.45f), true, true);
@@ -666,7 +667,7 @@ public class MainMenu : MonoBehaviour
         var desc = MenuUI.Label(body, Loc.T(descKey), 23, TextAnchor.UpperCenter, MenuUI.Muted);
         desc.horizontalOverflow = HorizontalWrapMode.Wrap;
         var descSize = desc.gameObject.AddComponent<LayoutElement>();
-        descSize.preferredWidth = 480f;
+        descSize.preferredWidth = 440f;
         descSize.preferredHeight = 76f;
         var chips = MenuUI.Group(body, "Chips", false, 10, TextAnchor.MiddleCenter);
         foreach (var key in chipKeys) MenuUI.Pill(chips, Loc.T(key), 21, MenuUI.Chip, MenuUI.Soft, 16, 6);

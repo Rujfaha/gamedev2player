@@ -14,7 +14,7 @@ public static class MatchSettings
     public static int totalRacers = 4;    // players + AI trucks
     public static int[] colors = { 0, 1 }; // palette index of P1's and P2's truck
     public static int[] cars = { 0, 1 };   // garage car of P1 and P2 (GemDriftConfig.cars)
-    public static int course;             // 0 = Forest, 1 = Circuit (see GameBootstrap.SceneForCourse)
+    public static int course;             // 0 = Forest, 1 = Circuit, 2 = Space (see GameBootstrap.SceneForCourse)
 
     // Statics survive scene loads; make sure a fresh Play session starts from the config defaults.
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

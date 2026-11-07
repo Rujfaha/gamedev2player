@@ -14,10 +14,10 @@ public class GameBootstrap : MonoBehaviour
     public const string MenuScene = "Menu";
 
     // scene name → built-in course used when the scene has no hand-built track
-    static readonly string[] GameScenes = { "Main", "Forest" };
+    static readonly string[] GameScenes = { "Space", "Main", "Forest" };
 
-    /// <summary>Course 0 = Forest Switchback, 1 = CPE Arena Circuit (keys 1 / 2).</summary>
-    public static string SceneForCourse(int course) => course == 0 ? "Forest" : "Main";
+    /// <summary>Course 0 = Forest Switchback, 1 = CPE Arena Circuit, 2 = Nebula Ring (space) (keys 1 / 2 / 3).</summary>
+    public static string SceneForCourse(int course) => course == 0 ? "Forest" : course == 2 ? "Space" : "Main";
 
     public static string NextScene(string current)
     {
@@ -68,9 +68,23 @@ public class GameBootstrap : MonoBehaviour
 
         string sceneName = SceneManager.GetActiveScene().name;
         bool menu = sceneName == MenuScene;
-        var id = menu ? (Random.value < 0.5f ? TrackId.Forest : TrackId.Circuit) // the menu background shows either course
-                      : sceneName == "Forest" ? TrackId.Forest : TrackId.Circuit;
-        if (id == TrackId.Forest)
+        var id = menu ? TrackId.Space // the menu background is the space course
+                      : sceneName == "Forest" ? TrackId.Forest : sceneName == "Space" ? TrackId.Space : TrackId.Circuit;
+        if (id == TrackId.Space)
+        {
+            // deep space: no fog, cool starlight from one side, purple-blue ambient bounce from the nebula
+            RenderSettings.fog = false;
+            if (sun != null)
+            {
+                sun.transform.rotation = Quaternion.Euler(38f, -60f, 0f);
+                sun.color = new Color(0.86f, 0.9f, 1f);
+                sun.intensity = 1.35f;
+            }
+            RenderSettings.ambientSkyColor = new Color(0.34f, 0.36f, 0.62f);
+            RenderSettings.ambientEquatorColor = new Color(0.26f, 0.2f, 0.42f);
+            RenderSettings.ambientGroundColor = new Color(0.1f, 0.08f, 0.2f);
+        }
+        else if (id == TrackId.Forest)
         {
             RenderSettings.fogColor = new Color(0.72f, 0.88f, 0.8f);
             if (menu) // the Forest scene saves its fog, the Menu scene does not
@@ -90,7 +104,7 @@ public class GameBootstrap : MonoBehaviour
             RenderSettings.fogStartDistance = 140f;
             RenderSettings.fogEndDistance = 520f;
         }
-        var sky = id == TrackId.Forest ? cfg.skyForest : cfg.skyCircuit;
+        var sky = id == TrackId.Space ? cfg.skySpace : id == TrackId.Forest ? cfg.skyForest : cfg.skyCircuit;
         if (sky != null) RenderSettings.skybox = sky;
         var layout = TrackBuilder.FromScene() ?? TrackBuilder.Build(cfg, transform, id);
         GraphicsFx.SetupScene(cfg, sun, menu);

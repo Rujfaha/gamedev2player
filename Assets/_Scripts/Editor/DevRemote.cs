@@ -44,6 +44,7 @@ static class DevRemote
                 switch (cmd)
                 {
                     case "refresh": AssetDatabase.Refresh(); break;
+                    case "bg": PlayerSettings.runInBackground = true; AssetDatabase.SaveAssets(); break;
                     case "play":
                         if (!EditorApplication.isPlaying)
                         {
